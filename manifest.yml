@@ -1,0 +1,31 @@
+modules:
+  jira:issuePanel:
+    - key: dependecy-graph
+      resource: issue-panel-graph
+      resolver:
+        function: resolver
+      title: Dependency Graph
+      icon: https://developer.atlassian.com/platform/forge/images/issue-panel-icon.svg
+  function:
+    - key: resolver
+      handler: resolvers.handler
+resources:
+  - key: issue-panel-graph
+    path: static/issue-panel-dependency-graph/dist
+    tunnel:
+      port: 3000
+app:
+  id: ari:cloud:ecosystem::app/afb214da-73bd-4120-904c-b3ce094493b9
+permissions:
+  scopes:
+    - 'read:jira-work'
+    - 'write:jira-work'
+  content:
+    styles:
+      - 'unsafe-inline'
+  external:
+    images:
+      - '*'
+    fetch:
+      client:
+        - '*'

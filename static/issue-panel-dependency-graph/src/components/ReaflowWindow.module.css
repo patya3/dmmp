@@ -1,0 +1,150 @@
+.parent {
+  background-color: white;
+  display: grid;
+  place-items: center;
+  overflow: hidden;
+}
+
+.node {
+  fill: white;
+  stroke: #1a192b;
+  stroke-width: 0.5px;
+}
+
+.nodeInner {
+  display: flex;
+  color: #42526e;
+  font-weight: 600;
+  align-items: center;
+}
+
+.nodeId {
+  padding-left: 5px;
+}
+
+.nodeStatus {
+  margin-left: auto;
+  margin-right: 5px;
+}
+
+.nodeTitle {
+  margin: 5px;
+  width: 100%;
+  font-weight: bold;
+}
+
+.leftControls {
+  display: 'flex';
+  position: absolute;
+  top: 0;
+  left: 0;
+  z-index: 1;
+}
+
+.leftControlButton {
+  float: left;
+  margin: 2px;
+}
+.rightControls {
+  display: 'flex';
+  position: absolute;
+  top: 0;
+  right: 0;
+  z-index: 1;
+}
+
+.rightControlButton {
+  float: right;
+  margin: 2px;
+}
+
+.edgeButtons {
+  display: grid;
+  place-items: center;
+  height: 100%;
+}
+
+.edgeForeignObject {
+  cursor: pointer;
+}
+
+.drawer {
+  overflow-y: auto;
+  position: absolute;
+  top: 0;
+  bottom: 0;
+  left: 0;
+  background-color: #dfe1e6;
+  z-index: 600;
+  white-space: nowrap;
+}
+
+.drawerRight {
+  left: unset;
+  right: 0;
+}
+
+.drawerHeader {
+  text-align: right;
+  margin: 5px;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+}
+
+.drawerHeader h2 {
+  margin-top: 0px;
+}
+
+h6 {
+  margin-top: 20px !important;
+}
+
+.dragger {
+  z-index: 999;
+  pointer-events: none;
+  user-select: none;
+  cursor: grabbing;
+  height: 70px;
+  width: 150px;
+}
+
+.dragInner {
+  pointer-events: none;
+  margin-left: 80px;
+  border-radius: 5px;
+  background: white;
+  border: solid 1px #1a192b;
+  height: 40px;
+  width: 40px;
+  color: black;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.blanket {
+  display: grid;
+  place-items: center;
+}
+
+.highlight {
+  border-color: red;
+}
+
+.skeleton {
+  background: linear-gradient(0.25turn, transparent, #fff, transparent), linear-gradient(#eee, #eee),
+    radial-gradient(38px circle at 19px 19px, #eee 50%, transparent 51%),
+    linear-gradient(#eee, #eee);
+  background-repeat: no-repeat;
+  animation: loading 2s infinite;
+  background-size: 315px 250px, 315px 180px, 100px 100px, 225px 30px;
+  background-position: -315px 0, 0 0, 0px 190px, 50px 195px;
+  border-radius: 100px;
+  content: '';
+}
+@keyframes loading {
+  to {
+    background-position: 315px 0, 0 0, 0 190px, 50px 195px;
+  }
+}

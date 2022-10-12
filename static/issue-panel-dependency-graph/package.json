@@ -1,0 +1,42 @@
+{
+  "name": "issue-panel-dependency-graph",
+  "private": true,
+  "version": "0.0.0",
+  "homepage": ".",
+  "type": "module",
+  "scripts": {
+    "dev": "vite",
+    "build": "tsc && vite build",
+    "preview": "vite preview"
+  },
+  "dependencies": {
+    "@atlaskit/blanket": "^12.2.15",
+    "@atlaskit/button": "^16.3.7",
+    "@atlaskit/css-reset": "^6.3.14",
+    "@atlaskit/drawer": "^7.2.0",
+    "@atlaskit/form": "^8.5.8",
+    "@atlaskit/icon": "^21.10.7",
+    "@atlaskit/menu": "^1.3.10",
+    "@atlaskit/modal-dialog": "^12.3.0",
+    "@atlaskit/select": "^15.7.0",
+    "@atlaskit/spinner": "^15.1.13",
+    "@atlaskit/textfield": "^5.2.0",
+    "@atlassianlabs/jql-editor-forge": "^1.0.2",
+    "classnames": "^2.3.2",
+    "framer-motion": "^7.5.1",
+    "lodash.debounce": "^4.0.8",
+    "rdk": "^6.0.4",
+    "react": "^18.2.0",
+    "react-dom": "^18.2.0",
+    "react-zoom-pan-pinch": "^2.1.3",
+    "reaflow": "^5.0.6",
+    "styled-components": "^3.2.0"
+  },
+  "devDependencies": {
+    "@types/react": "^18.0.15",
+    "@types/react-dom": "^18.0.6",
+    "@vitejs/plugin-react": "^2.0.0",
+    "typescript": "^4.6.4",
+    "vite": "^3.0.0"
+  }
+}

@@ -1,0 +1,7 @@
+.controlButtons {
+  display: flex;
+}
+
+.marginLeftAuto {
+  margin-left: auto;
+}
