@@ -4,7 +4,6 @@ import { IssueLinkTypes } from './types/return.types';
 
 export const getIssueById = async (issueId: string, fields: string | null) => {
   let res: any;
-  console.log(fields);
   if (!fields) {
     res = await api.asApp().requestJira(route`/rest/api/3/issue/${issueId}`);
   } else {
@@ -44,4 +43,19 @@ export const getIssueLinkTypes = async (): Promise<IssueLinkTypes> => {
   });
 
   return res.json();
+};
+
+export const getIssuesByKeys = async (keys: string[], fields: string) => {
+  const jqlUrlString: string = keys.map((key) => `key=${key}`).join(' or ');
+  const res = await api
+    .asApp()
+    .requestJira(route`/rest/api/3/search?jql=${jqlUrlString}&fields=${fields}`, {
+      headers: {
+        Accept: 'application/json',
+      },
+    });
+
+  const kecske = (await res.json()).issues;
+  console.log(kecske);
+  return kecske;
 };

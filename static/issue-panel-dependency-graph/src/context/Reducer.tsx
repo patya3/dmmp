@@ -1,4 +1,4 @@
-import { EdgeData, NodeData } from 'reaflow';
+import { addNodeAndEdge, EdgeData, NodeData } from 'reaflow';
 
 export enum ActionKind {
   SET_ISSUE = 'SET_ISSUE',
@@ -17,11 +17,20 @@ export enum ActionKind {
   CHANGE_DEPENDECY_TYPE = 'CHANGE_DEPENDECY_TYPE',
   TOGGLE_FULLSCREN = 'TOGGLE_FULLSCREN',
   SET_CONTEXT = 'SET_CONTEXT',
+  SET_DEPTH = 'SET_DEPTH',
 }
 
 export interface Action {
   type: ActionKind;
-  payload: EdgeData | EdgeData[] | NodeData | NodeData[] | Record<string, any> | boolean | string;
+  payload:
+    | EdgeData
+    | EdgeData[]
+    | NodeData
+    | NodeData[]
+    | Record<string, any>
+    | boolean
+    | string
+    | number;
 }
 
 function reducer(state: any, action: Action) {
@@ -38,12 +47,14 @@ function reducer(state: any, action: Action) {
       return {
         ...state,
         nodes: payload,
+        nodeKeys: (payload as NodeData[]).map((item: NodeData) => item.id),
         loading: false,
       };
     case ActionKind.INIT_EDGES:
       return {
         ...state,
         edges: payload,
+        edgeKeys: (payload as EdgeData[]).map((item: EdgeData) => item.id),
         loading: false,
       };
     case ActionKind.SET_CURRENT_NODE:
@@ -60,12 +71,14 @@ function reducer(state: any, action: Action) {
       return {
         ...state,
         nodes: [...state.nodes, payload],
+        nodeKeys: [...state.nodeKeys, (payload as NodeData).id],
         loading: false,
       };
     case ActionKind.ADD_EDGE:
       return {
         ...state,
         edges: [...state.edges, payload],
+        edgeKeys: [...state.edgeKeys, (payload as EdgeData).id],
         loading: false,
       };
     case ActionKind.SET_LOADING:
@@ -78,28 +91,30 @@ function reducer(state: any, action: Action) {
         ...state,
         nodes: state.nodes.filter((node: NodeData) => node.id !== (payload as NodeData).id),
         edges: state.edges.filter((edge: EdgeData) => edge.id.includes((payload as NodeData).id)),
+        nodeKeys: state.nodeKeys.filter((key: string) => key !== (payload as NodeData).id),
+        edgeKeys: state.edgeKeys.filter((key: string) => !key.includes((payload as NodeData).id)),
       };
     case ActionKind.REMOVE_EDGE:
-      const newEdges = state.edges.filter((edge: EdgeData) => edge.id !== (payload as EdgeData).id);
+      const edges = state.edges.filter((edge: EdgeData) => edge.id !== (payload as EdgeData).id);
+      const nodes = state.nodes.filter((node: NodeData) => {
+        return edges.some((edge: EdgeData) => edge.from === node.id || edge.to === node.id);
+      });
       return {
         ...state,
-        edges: newEdges,
-        nodes: state.nodes.filter((node: NodeData) => {
-          return newEdges.some((edge: EdgeData) => edge.from === node.id || edge.to === node.id);
-        }),
+        edges: edges,
+        nodes: nodes,
+        nodeKeys: nodes.map((node: NodeData) => node.id),
+        edgeKeys: edges.map((edge: EdgeData) => edge.id),
       };
 
     case ActionKind.UPDATE_EDGE:
+      const { edgeId, ...edgeData } = payload as EdgeData & { edgeId: string };
       return {
         ...state,
         edges: state.edges.map((edge: EdgeData) => {
-          if (edge.id === (payload as any).edgeId) {
-            return {
-              ...edge,
-              from: (payload as any).from,
-              to: (payload as any).to,
-              text: (payload as any).text,
-            };
+          if (edge.id === edgeId) {
+            const newEdge = { ...edge, ...edgeData };
+            return newEdge;
           }
           return edge;
         }),
@@ -107,22 +122,26 @@ function reducer(state: any, action: Action) {
 
     case ActionKind.UPDATE_NODE_DATA:
       const { nodeId, data } = payload as Record<string, any>;
-      console.log(nodeId, data);
+      const nodeIndex = state.nodes.findIndex((node: any) => node.id === nodeId);
+      const newNodes = [...state.nodes];
+      newNodes[nodeIndex] = {
+        ...state.nodes[nodeIndex],
+        data: {
+          ...state.nodes[nodeIndex].data,
+          ...data,
+        },
+      };
       return {
         ...state,
-        nodes: state.nodes.map((node: NodeData) => {
-          if (node.id === nodeId) {
-            console.log(node.id, nodeId);
-            return {
-              ...node,
-              data,
-            };
-          }
-          return node;
-        }),
+        nodes: newNodes,
       };
 
     case ActionKind.CHANGE_EDGE_ID:
+      const index = state.edgeKeys.findIndex((key: string) => key === (payload as any).edgeId);
+      console.log(state.edgeKeys.filter((key: string) => key === (payload as any).edgeId));
+      console.log(index);
+      const edgeKeys = [...state.edgeKeys];
+      edgeKeys[index] = (payload as any).newEdgeId;
       return {
         ...state,
         edges: state.edges.map((edge: EdgeData) => {
@@ -134,6 +153,7 @@ function reducer(state: any, action: Action) {
           }
           return edge;
         }),
+        edgeKeys,
       };
 
     case ActionKind.CHANGE_DEPENDECY_TYPE:
@@ -156,6 +176,12 @@ function reducer(state: any, action: Action) {
       return {
         ...state,
         context: payload,
+      };
+
+    case ActionKind.SET_DEPTH:
+      return {
+        ...state,
+        loadedDepth: payload,
       };
 
     default:

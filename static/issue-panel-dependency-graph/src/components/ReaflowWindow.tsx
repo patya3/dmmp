@@ -1,6 +1,7 @@
 import { invoke, requestJira, router } from '@forge/bridge';
 import {
   Canvas,
+  CanvasPosition,
   CanvasRef,
   Edge,
   EdgeData,
@@ -14,6 +15,7 @@ import {
   useSelection,
 } from 'reaflow';
 import classNames from 'classnames';
+import bind from 'classnames/bind';
 import css from './ReaflowWindow.module.css';
 import { MouseEvent, useCallback, useContext, useEffect, useRef, useState } from 'react';
 import { Context } from '../context/Context';
@@ -29,13 +31,15 @@ import AddIcon from '@atlaskit/icon/glyph/add';
 import Blanket from '@atlaskit/blanket';
 import { TransformWrapper, TransformComponent } from 'react-zoom-pan-pinch';
 import TextField from '@atlaskit/textfield';
-import { ButtonItem, SkeletonHeadingItem, SkeletonItem } from '@atlaskit/menu';
+import { ButtonItem } from '@atlaskit/menu';
 import ArrowLeftIcon from '@atlaskit/icon/glyph/arrow-left';
 import ArrowRightIcon from '@atlaskit/icon/glyph/arrow-right';
+import ChevronDownIcon from '@atlaskit/icon/glyph/chevron-down';
 import Spinner from '@atlaskit/spinner';
 import debounce from 'lodash.debounce';
 import { motion, useDragControls } from 'framer-motion';
-import { Portal } from 'rdk';
+
+const cx = bind.bind(css);
 
 (window as any).g = null;
 (window as any).i = null;
@@ -52,13 +56,16 @@ function ReaflowWindow() {
   const [isSearchDirty, setIsSearchDirty] = useState<boolean>(false);
   const [loading, setLoading] = useState<boolean>(false);
   const [searchText, setSearchText] = useState<string>('');
+  const [depth, setDepth] = useState<number>(1);
 
   const dragControls = useDragControls();
-  const [enteredNode, setEnteredNode] = useState<NodeData | null>(null);
+  const [enteredNodeId, setEnteredNodeId] = useState<string | null>(null);
   const [activeDrag, setActiveDrag] = useState<string | null>(null);
+  const [tempEdgeId, setTempEdgeId] = useState<string | null>(null);
   const [droppable, setDroppable] = useState<boolean>(false);
   const { state, dispatch } = useContext(Context);
-  const { nodes, edges } = state;
+  const { nodes, edges, loadedDepth, nodeKeys, edgeKeys } = state;
+  console.log(nodeKeys);
 
   const reaflowWindow = useRef(null);
   const canvasRef = useRef<CanvasRef | null>(null);
@@ -69,71 +76,6 @@ function ReaflowWindow() {
     edges,
     selections: [],
   });
-
-  const onDragStart = useCallback(
-    async (event: MouseEvent, data: any) => {
-      setActiveDrag(data.key);
-      dragControls.start(event, { snapToCursor: true });
-      setIsLeftDrawerOpen(false);
-    },
-    [setActiveDrag, setIsLeftDrawerOpen, dragControls],
-  );
-
-  const onDragEnd = async () => {
-    setLoading(true);
-    if (droppable && activeDrag) {
-      const issue: any = await invoke('getIssueById', {
-        id: activeDrag,
-        fields: 'issuetype,status,summary,issuelinks',
-      });
-      dispatch({
-        type: ActionKind.ADD_NODE,
-        payload: {
-          id: issue.key,
-          icon: {
-            url: issue.fields.issuetype.iconUrl,
-            width: 25,
-            height: 25,
-          },
-          data: {
-            status: issue.fields.status.name,
-            issueType: issue.fields.issuetype.name,
-            title: issue.fields.summary,
-          },
-          width: 170,
-        },
-      });
-      //   linkData: {
-      //     outwardIssue: { key: isInward ? edge.from : edge.to },
-      //     inwardIssue: { key: isInward ? edge.to : edge.from },
-      //     type: { name: event.value.name },
-      //   },
-      // const issueLink = await invoke('createIssueLink', {
-      //   newNodeKey: issue.key,
-      //   linkData: {
-      //     outwardIssue: { key: isInward ? edge.from : edge.to },
-      //     inwardIssue: { key: isInward ? edge.to : edge.from },
-      //     type: { name: event.value.name },
-      //   },
-      // });
-      // dispatch({
-      //   type: ActionKind.ADD_EDGE,
-      //   payload: {
-      //     id: item.linkData.id,
-      //     text: item.linkData.type.outward,
-      //     from: item.linkData.from,
-      //     to: item.linkData.to,
-      //     data: {
-      //       id: item.id,
-      //       text: item.linkData.type.outward,
-      //     },
-      //   },
-      // });
-    }
-    setDroppable(false);
-    setLoading(false);
-    setRightIsDrawerOpen(true);
-  };
 
   useEffect(() => {
     invoke('getIssueLinkTypes').then((res: any) => {
@@ -155,7 +97,7 @@ function ReaflowWindow() {
   }, [invoke, setIssueLinkTypes]);
 
   const toggleFullscreen = useCallback(() => {
-    const elem = reaflowWindow.current! as HTMLElement;
+    const elem = document.body;
     if (elem.requestFullscreen) {
       elem.requestFullscreen();
     }
@@ -207,6 +149,8 @@ function ReaflowWindow() {
           from: isInward ? edge.to : edge.from,
           to: isInward ? edge.from : edge.to,
           text: event.value.outwardText,
+          fromPort: isInward ? `southport_${edge.to}` : `southport_${edge.from}`,
+          toPort: isInward ? `northport_${edge.from}` : `northport_${edge.to}`,
         },
       });
     },
@@ -245,27 +189,53 @@ function ReaflowWindow() {
 
   const onAddDependecy = useCallback(
     async ({ name, type }: Record<string, string>) => {
-      setLoading(true);
-      if (activeDrag && enteredNode) {
+      if (tempEdgeId) {
+        const [fromNodeId, toNodeId] = tempEdgeId.split('_');
         const isInward = type === 'inward';
-        const updatedIssue: any = await invoke('createIssueLink', {
+        const createdLink: any = await invoke('createIssueLink', {
           newNodeKey: activeDrag,
           linkData: {
-            outwardIssue: { key: isInward ? activeDrag : enteredNode.id },
-            inwardIssue: { key: isInward ? enteredNode.id : activeDrag },
+            outwardIssue: { key: isInward ? fromNodeId : toNodeId },
+            inwardIssue: { key: isInward ? toNodeId : fromNodeId },
             type: { name },
           },
         });
-        const link = updatedIssue.fields.issuelinks.find(
-          (issueLink: any) => !state.edges.map((edge) => edge.id).includes(issueLink.id),
+
+        const edgesByEndpoints = edges.map((edge) => `${edge.from}_${edge.to}`);
+        console.log(edgesByEndpoints);
+        console.log(createdLink);
+
+        const link = createdLink.fields.issuelinks.find(
+          (issueLink: any) => !edgeKeys.includes(issueLink.id),
         );
+        const newEdgeId = link.id;
+
         dispatch({
-          type: ActionKind.ADD_EDGE,
+          type: ActionKind.CHANGE_EDGE_ID,
           payload: {
-            id: link.id,
+            edgeId: tempEdgeId,
+            newEdgeId,
+          },
+        });
+        const toNode = nodes.find((node) => node.id === toNodeId);
+        if (toNode) {
+          console.log(fromNodeId, toNode);
+          setTimeout(() => {
+            dispatch({
+              type: ActionKind.UPDATE_NODE_DATA,
+              payload: { nodeId: fromNodeId, data: { depth: toNode.data.depth + 1 } },
+            });
+          }, 1000);
+        }
+        dispatch({
+          type: ActionKind.UPDATE_EDGE,
+          payload: {
+            edgeId: newEdgeId,
             text: link.type.outward,
-            from: isInward ? enteredNode.id : activeDrag,
-            to: isInward ? activeDrag : enteredNode.id,
+            to: isInward ? fromNodeId : toNodeId,
+            from: isInward ? toNodeId : fromNodeId,
+            toPort: `northport_${isInward ? fromNodeId : toNodeId}`,
+            fromPort: `southport_${isInward ? toNodeId : fromNodeId}`,
             data: {
               id: link.id,
               text: link.type.outward,
@@ -273,11 +243,11 @@ function ReaflowWindow() {
           },
         });
       }
-      setActiveDrag(null);
-      setEnteredNode(null);
+      setEnteredNodeId(null);
       setLoading(false);
+      setTempEdgeId(null);
     },
-    [activeDrag, enteredNode],
+    [activeDrag, enteredNodeId, tempEdgeId],
   );
 
   const onAddNode = useCallback(
@@ -285,37 +255,38 @@ function ReaflowWindow() {
       //add skeleton node
       dispatch({
         type: ActionKind.ADD_NODE,
-        payload: {
-          id: issue.key,
-          icon: {
-            url: state.context?.siteUrl + issue.img,
-            width: 25,
-            height: 25,
-          },
-          data: {
-            title: issue.summary,
-          },
-          ports: [
-            {
-              id: `northport_${issue.key}`,
-              width: 10,
-              height: 10,
-              side: 'NORTH',
-            },
-            {
-              id: `southport_${issue.key}`,
-              width: 10,
-              height: 10,
-              side: 'SOUTH',
-            },
-          ],
-          width: 170,
-        },
+        payload: createNodeData(issue.key, state.context?.siteUrl + issue.img, {
+          title: issue.summary,
+          depth: 0,
+        }),
       });
       invoke('getIssueById', {
         id: issue.key,
         fields: 'issuetype,status,summary,issuelinks',
       }).then((loadedIssue: any) => {
+        for (const issueLink of loadedIssue.fields.issuelinks) {
+          if (!edgeKeys.includes(issueLink.id)) {
+            const resolvedIssueLink = resolveIssueLink(issueLink);
+            const fromNode =
+              resolvedIssueLink.linkType === 'outward' ? resolvedIssueLink.issue.key : issue.key;
+            const toNode =
+              resolvedIssueLink.linkType === 'outward' ? issue.key : resolvedIssueLink.issue.key;
+
+            if (nodeKeys.includes(resolvedIssueLink.issue.key)) {
+              dispatch({
+                type: ActionKind.ADD_EDGE,
+                payload: {
+                  id: resolvedIssueLink.id,
+                  text: resolvedIssueLink.type.outward,
+                  from: fromNode,
+                  to: toNode,
+                  fromPort: `southport_${fromNode}`,
+                  toPort: `northport_${toNode}`,
+                },
+              });
+            }
+          }
+        }
         dispatch({
           type: ActionKind.UPDATE_NODE_DATA,
           payload: {
@@ -324,12 +295,121 @@ function ReaflowWindow() {
               status: loadedIssue.fields.status.name,
               issueType: loadedIssue.fields.issuetype.name,
               title: loadedIssue.fields.summary,
+              depth: 0,
             },
           },
         });
       });
     },
-    [dispatch, invoke],
+    [dispatch, invoke, nodeKeys, edgeKeys],
+  );
+
+  const onAddEdge = useCallback(
+    (fromNodeId: string) => {
+      const toNodeId = enteredNodeId;
+      setActiveDrag(fromNodeId);
+      const id = `${fromNodeId}_${toNodeId}`;
+      dispatch({
+        type: ActionKind.ADD_EDGE,
+        payload: {
+          id,
+          text: 'undefined',
+          from: fromNodeId,
+          to: toNodeId,
+          fromPort: `southport_${fromNodeId}`,
+          toPort: `northport_${toNodeId}`,
+        },
+      });
+      // dispatch({
+      //   type: ActionKind.UPDATE_NODE_DATA,
+      //   payload: {
+      //     nodeId: fromNode,
+      //     data: {
+      //       depth: 2,
+      //     },
+      //   },
+      // });
+      setTempEdgeId(id);
+      setRightIsDrawerOpen(true);
+      console.log(activeDrag);
+    },
+    [enteredNodeId, activeDrag],
+  );
+
+  const onDepthChange = useCallback(
+    (newDepth: number) => {
+      setLoading(true);
+      setDepth(newDepth);
+      if (newDepth === 2) {
+        if (loadedDepth >= 2) {
+          console.log('cache');
+        } else {
+          dispatch({ type: ActionKind.SET_DEPTH, payload: 2 });
+          getIssues(2);
+        }
+      } else if (newDepth === 3) {
+        console.log('asd');
+      }
+    },
+    [nodes, loadedDepth],
+  );
+
+  const getIssues = useCallback(
+    (depth: number) => {
+      invoke('getIssuesByKeys', {
+        issueKeys: nodes.filter((node) => node.data.depth === depth - 1).map((node) => node.id),
+        fields: 'issuetype,status,summary,issuelinks',
+      }).then((issues: any) => {
+        for (const item of issues) {
+          for (const issueLink of item.fields.issuelinks) {
+            const linkedIssue = issueLink.inwardIssue
+              ? issueLink.inwardIssue
+              : issueLink.outwardIssue;
+            const linkType = issueLink.inwardIssue ? 'inward' : 'outward';
+            const fromNode = linkType === 'outward' ? item.key : linkedIssue.key;
+            const toNode = linkType === 'outward' ? linkedIssue.key : item.key;
+            if (!nodeKeys.includes(linkedIssue.key)) {
+              dispatch({
+                type: ActionKind.ADD_NODE,
+                payload: createNodeData(linkedIssue.key, linkedIssue.fields.issuetype.iconUrl, {
+                  status: linkedIssue.fields.status.name,
+                  issueType: linkedIssue.fields.issuetype.name,
+                  title: linkedIssue.fields.summary,
+                  depth,
+                }),
+              });
+              dispatch({
+                type: ActionKind.ADD_EDGE,
+                payload: {
+                  id: issueLink.id,
+                  text: issueLink.type.outward,
+                  from: fromNode,
+                  to: toNode,
+                  fromPort: `southport_${fromNode}`,
+                  toPort: `northport_${toNode}`,
+                },
+              });
+            } else {
+              if (!edgeKeys.includes(issueLink.id)) {
+                dispatch({
+                  type: ActionKind.ADD_EDGE,
+                  payload: {
+                    id: issueLink.id,
+                    text: issueLink.type.outward,
+                    from: fromNode,
+                    to: toNode,
+                    fromPort: `southport_${fromNode}`,
+                    toPort: `northport_${toNode}`,
+                  },
+                });
+              }
+            }
+          }
+        }
+        setLoading(false);
+      });
+    },
+    [nodes, nodeKeys, edgeKeys],
   );
 
   return (
@@ -420,15 +500,15 @@ function ReaflowWindow() {
               <div className={css.searchResult}>
                 {!!searchedIssues.length &&
                   searchedIssues?.map((issue: any) => (
-                    <motion.div key={issue.key} onMouseDown={(event) => onDragStart(event, issue)}>
-                      <ButtonItem
-                        isDisabled={state.nodes.map((node) => node.id).includes(issue.key)}
-                        css={{ cursor: '' }}
-                        onClick={() => onAddNode(issue)}
-                      >
-                        <b>{issue.key}</b>: {issue.summaryText}
-                      </ButtonItem>
-                    </motion.div>
+                    <ButtonItem
+                      isDisabled={state.nodes.map((node) => node.id).includes(issue.key)}
+                      css={{ cursor: '' }}
+                      onClick={() => {
+                        onAddNode(issue);
+                      }}
+                    >
+                      <b>{issue.key}</b>: {issue.summaryText}
+                    </ButtonItem>
                   ))}
                 {!isSearchLoading && isSearchDirty && !searchedIssues.length && (
                   <h6>No issues found</h6>
@@ -463,18 +543,51 @@ function ReaflowWindow() {
                 className={classNames(css.leftControlButton)}
                 iconBefore={<AddIcon label="" size="medium" />}
                 onClick={toggleDrawer}
+                isDisabled={isPannable}
               >
-                Add
+                Add Issue
               </Button>
+              <div className={css.leftControlButton}>
+                <PopupSelect
+                  options={[
+                    { label: 'Depth 1', value: 1 },
+                    { label: 'Depth 2', value: 2 },
+                    { label: 'Depth 3', value: 3 },
+                  ]}
+                  onChange={(value: { value: number; label: string } | null) =>
+                    onDepthChange(value!.value)
+                  }
+                  maxMenuHeight={200}
+                  minMenuHeight={200}
+                  popperProps={{
+                    placement: 'auto',
+                  }}
+                  target={({ ref }) => (
+                    <Button ref={ref} iconAfter={<ChevronDownIcon label="" size="medium" />}>
+                      Depth: {depth}
+                    </Button>
+                  )}
+                />
+                <PopupSelect
+                  className={css.depthSelect}
+                  onChange={(value) => console.log(value?.value)}
+                  placeholder="Depth"
+                />
+              </div>
             </div>
             <TransformComponent>
               <Canvas
+                defaultPosition={state.isFullscreen ? CanvasPosition.TOP : CanvasPosition.CENTER}
                 ref={canvasRef}
+                onLayoutChange={() => {
+                  canvasRef.current!.fitCanvas?.();
+                  console.log('layout change');
+                }}
                 // height={state.isFullscreen ? undefined : 400}
                 maxHeight={state.isFullscreen ? undefined : 700}
                 maxWidth={state.isFullscreen ? undefined : 1000}
                 fit={true}
-                nodes={nodes}
+                nodes={nodes.filter((node) => node.data.depth <= depth)}
                 edges={edges}
                 zoomable={false}
                 selections={selections}
@@ -530,7 +643,15 @@ function ReaflowWindow() {
                                 )}
                               />
                             </div>
-                            <div>{edge.text}</div>
+                            <div className={cx({ transparentText: edge.text === 'undefined' })}>
+                              {edge.text}
+                              {edge.text === 'undefined' && (
+                                <div
+                                  className={css.skeleton}
+                                  style={{ width: 50, height: 12, position: 'absolute' }}
+                                />
+                              )}
+                            </div>
                             <div
                               className={classNames({
                                 'display-none': isHidden || edge.id !== state.currentEdge?.id,
@@ -554,14 +675,18 @@ function ReaflowWindow() {
                 node={(node: NodeProps) => (
                   <Node
                     {...node}
-                    className={classNames(css.node, { highlight: enteredNode?.id === node.id })}
+                    className={classNames(css.node)}
                     // onClick={(_event, node) => {
                     //   router.open(`/browse/${node.id}`);
                     // }}
                     port={
                       <Port
-                        onDragStart={() => console.log('onDragStart')}
-                        onDragEnd={() => console.log(enteredNode)}
+                        onDragEnd={(_event, _initial, data) => {
+                          setActiveDrag(data.id.split('_')[1]);
+                          onAddEdge(data.id.split('_')[1]);
+                        }}
+                        onEnter={() => setEnteredNodeId(node.id)}
+                        onLeave={() => setEnteredNodeId(null)}
                         style={{ fill: 'blue', stroke: 'white' }}
                         rx={10}
                         ry={10}
@@ -573,14 +698,18 @@ function ReaflowWindow() {
                         <foreignObject
                           width={event.width}
                           height={event.height}
-                          onClick={() => {
-                            router.open(`/browse/${node.id}`);
-                          }}
+                          // onClick={() => {
+                          //   router.open(`/browse/${node.id}`);
+                          // }}
+                          className={cx({ isNodeHover: enteredNodeId === event.node.id })}
                           onMouseEnter={() => {
-                            setEnteredNode(event.node);
+                            setEnteredNodeId(event.node.id);
                           }}
                           onMouseLeave={() => {
-                            setEnteredNode(null);
+                            setEnteredNodeId(null);
+                          }}
+                          onMouseUp={() => {
+                            console.log('kecske mecske minden rendebn');
                           }}
                           style={{ cursor: 'pointer' }}
                         >
@@ -609,16 +738,6 @@ function ReaflowWindow() {
                   </Node>
                 )}
               />
-              <Portal>
-                <motion.div
-                  drag
-                  dragControls={dragControls}
-                  className={classNames(css.dragger)}
-                  onDragEnd={onDragEnd}
-                >
-                  {activeDrag && <div className={css.dragInner}>{activeDrag}</div>}
-                </motion.div>
-              </Portal>
             </TransformComponent>
           </>
         )}
@@ -626,4 +745,45 @@ function ReaflowWindow() {
     </div>
   );
 }
+
+const createNodeData = (id: string, iconUrl: string, data: Record<string, any>): NodeData => {
+  return {
+    id,
+    icon: {
+      url: iconUrl,
+      width: 25,
+      height: 25,
+    },
+    data,
+    ports: [
+      {
+        id: `northport_${id}`,
+        width: 10,
+        height: 10,
+        side: 'NORTH',
+      },
+      {
+        id: `southport_${id}`,
+        width: 10,
+        height: 10,
+        side: 'SOUTH',
+      },
+    ],
+    width: 170,
+  };
+};
+
+const resolveIssueLink = (issueLink: any) => {
+  return {
+    id: issueLink.id,
+    self: issueLink.self,
+    issue: issueLink.inwardIssue ? issueLink.inwardIssue : issueLink.outwardIssue,
+    type: issueLink.type,
+    linkType: issueLink.inwardIssue ? 'inward' : 'outward',
+  };
+};
+
+// const getNodesAndEdges = (issues: any) => {
+//   const kecske mecske minden rendben csak el kell
+// }
 export default ReaflowWindow;

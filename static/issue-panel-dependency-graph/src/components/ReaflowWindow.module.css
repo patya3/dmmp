@@ -128,8 +128,22 @@ h6 {
   place-items: center;
 }
 
-.highlight {
-  border-color: red;
+.isNodeHover {
+  border: 1px solid black;
+}
+
+.transparentText {
+  color: transparent;
+}
+
+.depthSelect {
+  width: 110px;
+  min-height: 32px;
+}
+
+.blanket {
+  display: grid;
+  place-items: center;
 }
 
 .skeleton {
