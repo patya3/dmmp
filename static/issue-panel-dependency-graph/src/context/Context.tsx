@@ -19,7 +19,6 @@ interface IContext {
   nodeKeys: string[];
   edgeKeys: string[];
   confirmationModalIsOpen: boolean;
-  currentMaxDepth: number;
 }
 
 export const initialState: IContext = {
@@ -39,7 +38,6 @@ export const initialState: IContext = {
   nodeKeys: [],
   edgeKeys: [],
   confirmationModalIsOpen: false,
-  currentMaxDepth: 1,
 };
 
 export const Context = createContext<{

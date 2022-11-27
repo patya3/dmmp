@@ -1,9 +1,12 @@
 import { EdgeData, NodeData } from 'reaflow';
+import {
+  createEdgeDataFromLink,
+  createNodeDataFromIssue,
+  updateDepths,
+} from '../utils/context.utils';
 
 export enum ActionKind {
   SET_ISSUE = 'SET_ISSUE',
-  INIT_NODES = 'INIT_NODES',
-  INIT_EDGES = 'INIT_EDGES',
   SET_CURRENT_NODE = 'SET_CURRENT_NODE',
   SET_CURRENT_EDGE = 'SET_CURRENT_EDGE',
   ADD_NODE = 'ADD_NODE',
@@ -11,7 +14,6 @@ export enum ActionKind {
   REMOVE_NODE = 'REMOVE_NODE',
   REMOVE_EDGE = 'REMOVE_EDGE',
   UPDATE_EDGE = 'UPDATE_EDGE',
-  UPDATE_NODE_DATA = 'UPDATE_NODE_DATA',
   CHANGE_EDGE_ID = 'CHANGE_EDGE_ID',
   SET_LOADING = 'SET_LOADING',
   CHANGE_DEPENDECY_TYPE = 'CHANGE_DEPENDECY_TYPE',
@@ -56,20 +58,6 @@ function reducer(state: any, action: Action) {
       return {
         ...state,
         issue: payload,
-        loading: false,
-      };
-    case ActionKind.INIT_NODES:
-      return {
-        ...state,
-        nodes: payload,
-        nodeKeys: (payload as NodeData[]).map((item: NodeData) => item.id),
-        loading: false,
-      };
-    case ActionKind.INIT_EDGES:
-      return {
-        ...state,
-        edges: payload,
-        edgeKeys: (payload as EdgeData[]).map((item: EdgeData) => item.id),
         loading: false,
       };
     case ActionKind.SET_CURRENT_NODE:
@@ -139,22 +127,6 @@ function reducer(state: any, action: Action) {
           }
           return edge;
         }),
-      };
-
-    case ActionKind.UPDATE_NODE_DATA:
-      const { nodeId, data } = payload as Record<string, any>;
-      const nodeIndex = state.nodes.findIndex((node: any) => node.id === nodeId);
-      newNodes = [...state.nodes];
-      newNodes[nodeIndex] = {
-        ...state.nodes[nodeIndex],
-        data: {
-          ...state.nodes[nodeIndex].data,
-          ...data,
-        },
-      };
-      return {
-        ...state,
-        nodes: newNodes,
       };
 
     case ActionKind.CHANGE_EDGE_ID:
@@ -330,124 +302,5 @@ function reducer(state: any, action: Action) {
       return state;
   }
 }
-
-const createNodeDataFromIssue = (issue: any): NodeData => {
-  const { key, fields, self, depth, hidden, addedByUser } = issue;
-  return {
-    id: key,
-    icon: {
-      url: fields.issuetype.iconUrl,
-      width: 25,
-      height: 25,
-    },
-    data: {
-      title: fields.summary,
-      status: fields.status.name,
-      issueType: fields.issuetype.name,
-      link: self,
-      depth,
-      hidden,
-      addedByUser,
-    },
-    ports: [
-      {
-        id: `northport_${key}`,
-        width: 10,
-        height: 10,
-        side: 'NORTH',
-      },
-      {
-        id: `southport_${key}`,
-        width: 10,
-        height: 10,
-        side: 'SOUTH',
-      },
-    ],
-    width: 170,
-  };
-};
-
-const createEdgeDataFromLink = (link: any) => {
-  const { from, to, type, id } = link;
-
-  return {
-    id,
-    text: type.outward,
-    from: from,
-    to: to,
-    fromPort: `southport_${from}`,
-    toPort: `northport_${to}`,
-  };
-};
-
-const updateDepths = (
-  issues: any[],
-  links: any[],
-  depth: number,
-): {
-  issues: any[];
-  nodes: NodeData[];
-  edges: EdgeData[];
-  edgeKeys: string[];
-  nodeKeys: string[];
-  currentMaxDepth: number;
-} => {
-  const defaultIssue = issues.find((issue) => issue.depth === 0)!;
-  const depths: Set<string>[] = [
-    new Set([defaultIssue.key]),
-    new Set([]),
-    new Set([]),
-    new Set([]),
-    new Set([]),
-    new Set([]),
-  ];
-  let i = 0;
-  let currentEdges = links.filter((link) => depths[i].has(link.from!) || depths[i].has(link.to!));
-  const addedNodes = [defaultIssue.key];
-  while (currentEdges.length) {
-    if (i + 1 >= depths.length) {
-      break;
-    }
-    for (const edge of currentEdges) {
-      if (!addedNodes.includes(edge.from!)) {
-        depths[i + 1].add(edge.from!);
-        addedNodes.push(edge.from!);
-      }
-      if (!addedNodes.includes(edge.to!)) {
-        depths[i + 1].add(edge.to!);
-        addedNodes.push(edge.to!);
-      }
-    }
-    i++;
-    currentEdges = links.filter((link) => depths[i].has(link.from!) || depths[i].has(link.to!));
-  }
-
-  let newNodes: NodeData[],
-    newEdges: EdgeData[],
-    newNodeKeys: string[],
-    newEdgeKeys: string[],
-    newIssues: any[];
-  newIssues = issues.map((issue) => {
-    const index = depths.findIndex((depthSet) => depthSet.has(issue.key));
-    return { ...issue, depth: index };
-  });
-  newNodes = newIssues
-    .map((issue: any) => createNodeDataFromIssue(issue))
-    .filter((node) => node.data.depth <= depth || node.data.addedByUser);
-  newNodeKeys = newNodes.map((node: NodeData) => node.id);
-  newEdges = links
-    .map((link: any) => createEdgeDataFromLink(link))
-    .filter((link: any) => newNodeKeys.includes(link.from) && newNodeKeys.includes(link.to));
-  newEdgeKeys = newEdges.map((edge: EdgeData) => edge.id);
-
-  return {
-    issues: newIssues,
-    nodes: newNodes,
-    edges: newEdges,
-    nodeKeys: newNodeKeys,
-    edgeKeys: newEdgeKeys,
-    currentMaxDepth: Math.max(...newNodes.map((node) => node.data.depth)),
-  };
-};
 
 export default reducer;

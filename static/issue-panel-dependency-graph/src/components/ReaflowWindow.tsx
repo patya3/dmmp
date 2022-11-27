@@ -44,7 +44,6 @@ import CrossIcon from '@atlaskit/icon/glyph/cross';
 import LinkIcon from '@atlaskit/icon/glyph/link';
 import RefreshIcon from '@atlaskit/icon/glyph/refresh';
 import UndoIcon from '@atlaskit/icon/glyph/undo';
-import EditorRedoIcon from '@atlaskit/icon/glyph/editor/redo';
 import { createNodeData, resolveIssueLink } from '../utils/graph.utils';
 
 const cx = bind.bind(css);
@@ -53,7 +52,6 @@ const cx = bind.bind(css);
 (window as any).i = null;
 
 function ReaflowWindow() {
-  const [isHidden, setIsHidden] = useState<boolean>(true);
   const [isPannable, setIsPannable] = useState<boolean>(false);
   const [issueLinkTypes, setIssueLinkTypes] = useState<Record<string, any>[]>([]);
   const [isLeftDrawerOpen, setIsLeftDrawerOpen] = useState<boolean>(false);
@@ -79,7 +77,7 @@ function ReaflowWindow() {
   const [activeDrag, setActiveDrag] = useState<string | null>(null);
   const [tempEdgeId, setTempEdgeId] = useState<string | null>(null);
   const { state, dispatch } = useContext(Context);
-  const { nodes, edges, nodeKeys, edgeKeys, issues, currentMaxDepth } = state;
+  const { nodes, edges, nodeKeys, edgeKeys, issues } = state;
   const reaflowWindow = useRef(null);
   const canvasRef = useRef<CanvasRef | null>(null);
   const searchFieldRef = useRef<HTMLInputElement | null>(null);
@@ -123,7 +121,6 @@ function ReaflowWindow() {
   }, [state.isFullscreen, dispatch]);
 
   const onNodeClick = useCallback((event: MouseEvent, node: NodeData) => {
-    console.log('hello');
     dispatch({ type: ActionKind.SET_CURRENT_NODE, payload: node });
     onClick?.(event as any, node);
   }, []);
@@ -132,16 +129,14 @@ function ReaflowWindow() {
     (event: MouseEvent, edge: EdgeData) => {
       dispatch({ type: ActionKind.SET_CURRENT_EDGE, payload: edge });
       onClick?.(event as any, edge);
-      setIsHidden(false);
     },
-    [setIsHidden, onClick, dispatch],
+    [onClick, dispatch],
   );
 
   const onEdgeTypeChange = useCallback(
     (event: Record<string, any> | null, edge: EdgeData) => {
       if (!event || event.label === state.currentEdge!.text) return;
 
-      setIsHidden(true);
       const isInward = event.value.type === 'inward';
       invoke('changeIssueLinkType', {
         linkId: edge.id,
@@ -185,7 +180,7 @@ function ReaflowWindow() {
         },
       });
     },
-    [dispatch, invoke, setIsHidden, state.currentEdge, edges, edgeKeys],
+    [dispatch, invoke, state.currentEdge, edges, edgeKeys],
   );
 
   const toggleDrawer = useCallback(() => {
@@ -359,10 +354,9 @@ function ReaflowWindow() {
     if (depth < 5) {
       setDepth(depth + 1);
     }
-    // setMaxDepth(currentMaxDepth);
     getIssues(depth + 1);
     dispatch({ type: ActionKind.SET_DEPTH, payload: depth + 1 });
-  }, [depth, setDepth, currentMaxDepth]);
+  }, [depth, setDepth]);
 
   const onDepthDecrease = useCallback(() => {
     setLoading(true);

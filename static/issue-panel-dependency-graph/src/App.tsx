@@ -16,6 +16,7 @@ function App() {
     if (!loading && context) {
       dispatch({ type: ActionKind.SET_CONTEXT, payload: context });
     }
+    console.log(issue);
     if (!loading && issue && errors.length === 0 && (!state.edges.length || !state.nodes.length)) {
       const links = issue.fields.issuelinks.map((item: any) => resolveIssueLink(item));
       dispatch({
