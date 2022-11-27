@@ -26,7 +26,8 @@ import TrashIcon from '@atlaskit/icon/glyph/trash';
 import EditIcon from '@atlaskit/icon/glyph/edit';
 import LockIcon from '@atlaskit/icon/glyph/lock';
 import UnlockIcon from '@atlaskit/icon/glyph/unlock';
-import Select, { PopupSelect } from '@atlaskit/select';
+import EditorHorizontalRuleIcon from '@atlaskit/icon/glyph/editor/horizontal-rule';
+import { PopupSelect } from '@atlaskit/select';
 import AddIcon from '@atlaskit/icon/glyph/add';
 import Blanket from '@atlaskit/blanket';
 import { TransformWrapper, TransformComponent } from 'react-zoom-pan-pinch';
@@ -34,10 +35,17 @@ import TextField from '@atlaskit/textfield';
 import { ButtonItem } from '@atlaskit/menu';
 import ArrowLeftIcon from '@atlaskit/icon/glyph/arrow-left';
 import ArrowRightIcon from '@atlaskit/icon/glyph/arrow-right';
-import ChevronDownIcon from '@atlaskit/icon/glyph/chevron-down';
 import Spinner from '@atlaskit/spinner';
 import debounce from 'lodash.debounce';
-import { motion, useDragControls } from 'framer-motion';
+import Flag, { AppearanceTypes, AutoDismissFlag, FlagGroup } from '@atlaskit/flag';
+import ConfirmationModal, { ConfirmationModalProps } from './ConfirmationModal/ConfirmationModal';
+import ErrorIcon from '@atlaskit/icon/glyph/error';
+import CrossIcon from '@atlaskit/icon/glyph/cross';
+import LinkIcon from '@atlaskit/icon/glyph/link';
+import RefreshIcon from '@atlaskit/icon/glyph/refresh';
+import UndoIcon from '@atlaskit/icon/glyph/undo';
+import EditorRedoIcon from '@atlaskit/icon/glyph/editor/redo';
+import { createNodeData, resolveIssueLink } from '../utils/graph.utils';
 
 const cx = bind.bind(css);
 
@@ -45,7 +53,6 @@ const cx = bind.bind(css);
 (window as any).i = null;
 
 function ReaflowWindow() {
-  const [isEdgeModalOpen, setIsEdgeModalOpen] = useState(false);
   const [isHidden, setIsHidden] = useState<boolean>(true);
   const [isPannable, setIsPannable] = useState<boolean>(false);
   const [issueLinkTypes, setIssueLinkTypes] = useState<Record<string, any>[]>([]);
@@ -57,21 +64,27 @@ function ReaflowWindow() {
   const [loading, setLoading] = useState<boolean>(false);
   const [searchText, setSearchText] = useState<string>('');
   const [depth, setDepth] = useState<number>(1);
+  const [maxDepth, setMaxDepth] = useState<number>(5);
+  const [confirmationModalData, setConfirmationModalData] = useState<ConfirmationModalProps | null>(
+    null,
+  );
+  const [removedNodeIds, setRemovedNodeIds] = useState<string[]>([]);
+  console.log(removedNodeIds);
 
-  const dragControls = useDragControls();
+  const [flags, setFlags] = useState<
+    { id: number; title: string; description: string; type: string; appearance: AppearanceTypes }[]
+  >([]);
+
   const [enteredNodeId, setEnteredNodeId] = useState<string | null>(null);
   const [activeDrag, setActiveDrag] = useState<string | null>(null);
   const [tempEdgeId, setTempEdgeId] = useState<string | null>(null);
-  const [droppable, setDroppable] = useState<boolean>(false);
   const { state, dispatch } = useContext(Context);
-  const { nodes, edges, loadedDepth, nodeKeys, edgeKeys } = state;
-  console.log(nodeKeys);
-
+  const { nodes, edges, nodeKeys, edgeKeys, issues, currentMaxDepth } = state;
   const reaflowWindow = useRef(null);
   const canvasRef = useRef<CanvasRef | null>(null);
   const searchFieldRef = useRef<HTMLInputElement | null>(null);
 
-  const { selections, onCanvasClick, onClick } = useSelection({
+  const { selections, onCanvasClick, onClick, clearSelections } = useSelection({
     nodes,
     edges,
     selections: [],
@@ -109,6 +122,12 @@ function ReaflowWindow() {
     dispatch({ type: ActionKind.TOGGLE_FULLSCREN, payload: !state.isFullscreen });
   }, [state.isFullscreen, dispatch]);
 
+  const onNodeClick = useCallback((event: MouseEvent, node: NodeData) => {
+    console.log('hello');
+    dispatch({ type: ActionKind.SET_CURRENT_NODE, payload: node });
+    onClick?.(event as any, node);
+  }, []);
+
   const onEdgeClick = useCallback(
     (event: MouseEvent, edge: EdgeData) => {
       dispatch({ type: ActionKind.SET_CURRENT_EDGE, payload: edge });
@@ -132,14 +151,26 @@ function ReaflowWindow() {
           type: { name: event.value.name },
         },
       }).then((updatedIssue: any) => {
+        const link = resolveIssueLink(
+          updatedIssue.fields.issuelinks.find((issueLink: any) => !edgeKeys.includes(issueLink.id)),
+        );
         dispatch({
           type: ActionKind.CHANGE_EDGE_ID,
           payload: {
             edgeId: edge.id,
-            newEdgeId: updatedIssue.fields.issuelinks.find(
-              (issueLink: any) => !state.edges.map((edge) => edge.id).includes(issueLink.id),
-            ).id,
+            newEdgeId: link.id,
           },
+        });
+        dispatch({
+          type: ActionKind.ADD_LINKS,
+          payload: [
+            {
+              id: link.id,
+              from: isInward ? edge.to : edge.from,
+              to: isInward ? edge.from : edge.to,
+              type: link.type,
+            },
+          ],
         });
       });
       dispatch({
@@ -154,7 +185,7 @@ function ReaflowWindow() {
         },
       });
     },
-    [dispatch, invoke, setIsHidden, state.currentEdge],
+    [dispatch, invoke, setIsHidden, state.currentEdge, edges, edgeKeys],
   );
 
   const toggleDrawer = useCallback(() => {
@@ -201,54 +232,63 @@ function ReaflowWindow() {
           },
         });
 
-        const edgesByEndpoints = edges.map((edge) => `${edge.from}_${edge.to}`);
-        console.log(edgesByEndpoints);
-        console.log(createdLink);
-
-        const link = createdLink.fields.issuelinks.find(
-          (issueLink: any) => !edgeKeys.includes(issueLink.id),
+        const link = resolveIssueLink(
+          createdLink.fields.issuelinks.find((issueLink: any) => !edgeKeys.includes(issueLink.id)),
         );
-        const newEdgeId = link.id;
 
         dispatch({
           type: ActionKind.CHANGE_EDGE_ID,
           payload: {
             edgeId: tempEdgeId,
-            newEdgeId,
+            newEdgeId: link.id,
           },
         });
-        const toNode = nodes.find((node) => node.id === toNodeId);
-        if (toNode) {
-          console.log(fromNodeId, toNode);
-          setTimeout(() => {
-            dispatch({
-              type: ActionKind.UPDATE_NODE_DATA,
-              payload: { nodeId: fromNodeId, data: { depth: toNode.data.depth + 1 } },
-            });
-          }, 1000);
-        }
         dispatch({
-          type: ActionKind.UPDATE_EDGE,
-          payload: {
-            edgeId: newEdgeId,
-            text: link.type.outward,
-            to: isInward ? fromNodeId : toNodeId,
-            from: isInward ? toNodeId : fromNodeId,
-            toPort: `northport_${isInward ? fromNodeId : toNodeId}`,
-            fromPort: `southport_${isInward ? toNodeId : fromNodeId}`,
-            data: {
+          type: ActionKind.ADD_LINKS,
+          payload: [
+            {
               id: link.id,
-              text: link.type.outward,
+              to: isInward ? fromNodeId : toNodeId,
+              from: isInward ? toNodeId : fromNodeId,
+              type: link.type,
             },
-          },
+          ],
         });
       }
       setEnteredNodeId(null);
       setLoading(false);
       setTempEdgeId(null);
+      setRightIsDrawerOpen(false);
     },
     [activeDrag, enteredNodeId, tempEdgeId],
   );
+
+  const onRemoveEdge = useCallback((edgeId: string) => {
+    console.log('hello');
+    setConfirmationModalData({
+      title: 'Confirm deletation',
+      body: 'Are you sure you want to delete this dependecy?',
+      buttons: ['delete'],
+      additionalData: { edgeId },
+    });
+    dispatch({ type: ActionKind.SET_MODAL_OPEN, payload: true });
+  }, []);
+
+  const onRemoveNode = useCallback(
+    (nodeId: string) => {
+      setRemovedNodeIds([...removedNodeIds, nodeId]);
+      dispatch({ type: ActionKind.REMOVE_NODE, payload: nodeId });
+    },
+    [removedNodeIds],
+  );
+
+  const onReduNode = useCallback(() => {
+    const newRemovedNodeIds = [...removedNodeIds];
+    const nodeId = newRemovedNodeIds.pop()!;
+    setRemovedNodeIds(newRemovedNodeIds);
+    dispatch({ type: ActionKind.REDU_NODE, payload: nodeId });
+    clearSelections();
+  }, [removedNodeIds]);
 
   const onAddNode = useCallback(
     async (issue: any) => {
@@ -257,51 +297,38 @@ function ReaflowWindow() {
         type: ActionKind.ADD_NODE,
         payload: createNodeData(issue.key, state.context?.siteUrl + issue.img, {
           title: issue.summary,
-          depth: 0,
+          depth: -1,
+          temp: true,
         }),
       });
       invoke('getIssueById', {
         id: issue.key,
         fields: 'issuetype,status,summary,issuelinks',
       }).then((loadedIssue: any) => {
-        for (const issueLink of loadedIssue.fields.issuelinks) {
-          if (!edgeKeys.includes(issueLink.id)) {
-            const resolvedIssueLink = resolveIssueLink(issueLink);
-            const fromNode =
-              resolvedIssueLink.linkType === 'outward' ? resolvedIssueLink.issue.key : issue.key;
-            const toNode =
-              resolvedIssueLink.linkType === 'outward' ? issue.key : resolvedIssueLink.issue.key;
-
-            if (nodeKeys.includes(resolvedIssueLink.issue.key)) {
-              dispatch({
-                type: ActionKind.ADD_EDGE,
-                payload: {
-                  id: resolvedIssueLink.id,
-                  text: resolvedIssueLink.type.outward,
-                  from: fromNode,
-                  to: toNode,
-                  fromPort: `southport_${fromNode}`,
-                  toPort: `northport_${toNode}`,
-                },
-              });
-            }
-          }
-        }
+        const links = loadedIssue.fields.issuelinks.map((item: any) => resolveIssueLink(item));
         dispatch({
-          type: ActionKind.UPDATE_NODE_DATA,
+          type: ActionKind.ADD_ISSUES,
+          payload: [
+            ...links.map((item: any) => ({ ...item.issue, depth: -1, addedByUser: true })),
+            { ...loadedIssue, depth: -1, addedByUser: true },
+          ],
+        });
+        dispatch({
+          type: ActionKind.ADD_LINKS,
           payload: {
-            nodeId: loadedIssue.key,
-            data: {
-              status: loadedIssue.fields.status.name,
-              issueType: loadedIssue.fields.issuetype.name,
-              title: loadedIssue.fields.summary,
-              depth: 0,
-            },
+            links: links.map((link: any) => ({
+              id: link.id,
+              to: link.linkType === 'inward' ? issue.key : link.issue.key,
+              from: link.linkType === 'inward' ? link.issue.key : issue.key,
+              type: link.type,
+            })),
+            addedByUser: true,
           },
         });
+        canvasRef.current!.fitCanvas?.();
       });
     },
-    [dispatch, invoke, nodeKeys, edgeKeys],
+    [dispatch, invoke, nodeKeys, edgeKeys, canvasRef],
   );
 
   const onAddEdge = useCallback(
@@ -320,97 +347,105 @@ function ReaflowWindow() {
           toPort: `northport_${toNodeId}`,
         },
       });
-      // dispatch({
-      //   type: ActionKind.UPDATE_NODE_DATA,
-      //   payload: {
-      //     nodeId: fromNode,
-      //     data: {
-      //       depth: 2,
-      //     },
-      //   },
-      // });
       setTempEdgeId(id);
       setRightIsDrawerOpen(true);
-      console.log(activeDrag);
+      canvasRef.current!.fitCanvas?.();
     },
-    [enteredNodeId, activeDrag],
+    [enteredNodeId, activeDrag, canvasRef],
   );
 
-  const onDepthChange = useCallback(
-    (newDepth: number) => {
-      setLoading(true);
-      setDepth(newDepth);
-      if (newDepth === 2) {
-        if (loadedDepth >= 2) {
-          console.log('cache');
-        } else {
-          dispatch({ type: ActionKind.SET_DEPTH, payload: 2 });
-          getIssues(2);
-        }
-      } else if (newDepth === 3) {
-        console.log('asd');
-      }
-    },
-    [nodes, loadedDepth],
-  );
+  const onDepthIncrease = useCallback(() => {
+    setLoading(true);
+    if (depth < 5) {
+      setDepth(depth + 1);
+    }
+    // setMaxDepth(currentMaxDepth);
+    getIssues(depth + 1);
+    dispatch({ type: ActionKind.SET_DEPTH, payload: depth + 1 });
+  }, [depth, setDepth, currentMaxDepth]);
+
+  const onDepthDecrease = useCallback(() => {
+    setLoading(true);
+    if (depth > 1) {
+      setDepth(depth - 1);
+    }
+    dispatch({ type: ActionKind.REMOVE_USER_ADDED, payload: null });
+    dispatch({ type: ActionKind.SET_DEPTH, payload: depth - 1 });
+    setLoading(false);
+  }, [depth, setDepth]);
 
   const getIssues = useCallback(
     (depth: number) => {
+      const issueKeysInDepth: string[] = issues
+        .filter((issue) => issue.depth === depth - 1)
+        .map((issue) => issue.key);
+      const issueKeysToQuery: string[] = [];
+      const previouslyLoadedIssues: any[] = [];
+
+      for (const issueKey of issueKeysInDepth) {
+        const issue = issues.find((issue: any) => issue.key === issueKey)!;
+        if (issue.isPartial) {
+          issueKeysToQuery.push(issueKey);
+        } else {
+          previouslyLoadedIssues.push(issue);
+        }
+      }
+      if (!issueKeysToQuery.length) {
+        dispatch({ type: ActionKind.CALC_DEPTHS, payload: null });
+        setLoading(false);
+        if (!issueKeysInDepth.length) {
+          setMaxDepth(depth - 1);
+          setDepth(depth - 1);
+          const newFlags = flags.slice();
+          newFlags.splice(0, 0, {
+            id: flags.length + 1,
+            title: 'No more issues found',
+            description: 'No more dependency found in that graph',
+            type: 'timed',
+            appearance: 'warning',
+          });
+          setFlags(newFlags);
+        }
+        return;
+      }
+
       invoke('getIssuesByKeys', {
-        issueKeys: nodes.filter((node) => node.data.depth === depth - 1).map((node) => node.id),
+        issueKeys: issueKeysToQuery,
         fields: 'issuetype,status,summary,issuelinks',
       }).then((issues: any) => {
-        for (const item of issues) {
-          for (const issueLink of item.fields.issuelinks) {
-            const linkedIssue = issueLink.inwardIssue
-              ? issueLink.inwardIssue
-              : issueLink.outwardIssue;
-            const linkType = issueLink.inwardIssue ? 'inward' : 'outward';
-            const fromNode = linkType === 'outward' ? item.key : linkedIssue.key;
-            const toNode = linkType === 'outward' ? linkedIssue.key : item.key;
-            if (!nodeKeys.includes(linkedIssue.key)) {
-              dispatch({
-                type: ActionKind.ADD_NODE,
-                payload: createNodeData(linkedIssue.key, linkedIssue.fields.issuetype.iconUrl, {
-                  status: linkedIssue.fields.status.name,
-                  issueType: linkedIssue.fields.issuetype.name,
-                  title: linkedIssue.fields.summary,
-                  depth,
-                }),
-              });
-              dispatch({
-                type: ActionKind.ADD_EDGE,
-                payload: {
-                  id: issueLink.id,
-                  text: issueLink.type.outward,
-                  from: fromNode,
-                  to: toNode,
-                  fromPort: `southport_${fromNode}`,
-                  toPort: `northport_${toNode}`,
-                },
-              });
-            } else {
-              if (!edgeKeys.includes(issueLink.id)) {
-                dispatch({
-                  type: ActionKind.ADD_EDGE,
-                  payload: {
-                    id: issueLink.id,
-                    text: issueLink.type.outward,
-                    from: fromNode,
-                    to: toNode,
-                    fromPort: `southport_${fromNode}`,
-                    toPort: `northport_${toNode}`,
-                  },
-                });
-              }
-            }
-          }
+        for (const issue of issues) {
+          const links = issue.fields.issuelinks.map((item: any) => resolveIssueLink(item));
+          dispatch({
+            type: ActionKind.ADD_ISSUES,
+            payload: [
+              ...links.map((item: any) => ({ ...item.issue, depth: -1 })),
+              { ...issue, depth: -1 },
+            ],
+          });
+          dispatch({
+            type: ActionKind.ADD_LINKS,
+            payload: links.map((link: any) => ({
+              id: link.id,
+              to: link.linkType === 'inward' ? issue.key : link.issue.key,
+              from: link.linkType === 'inward' ? link.issue.key : issue.key,
+              type: link.type,
+            })),
+          });
         }
+        canvasRef.current!.fitCanvas?.();
         setLoading(false);
       });
     },
-    [nodes, nodeKeys, edgeKeys],
+    [nodes, nodeKeys, edgeKeys, issues, depth],
   );
+
+  const handleFlagDismiss = () => {
+    setFlags(flags.slice(1));
+  };
+
+  useEffect(() => {
+    canvasRef.current!.fitCanvas?.();
+  }, [state, canvasRef]);
 
   return (
     <div ref={reaflowWindow} className={classNames(css.parent)}>
@@ -430,6 +465,30 @@ function ReaflowWindow() {
             >
               {loading && <Spinner size={'xlarge'} />}
             </Blanket>
+            {confirmationModalData && <ConfirmationModal {...confirmationModalData} />}
+            <FlagGroup onDismissed={handleFlagDismiss}>
+              {flags.map((flag) => {
+                if (flag.type === 'timed') {
+                  return (
+                    <AutoDismissFlag
+                      icon={<ErrorIcon label="Warning" />}
+                      id={flag.id}
+                      title={flag.title}
+                      description={flag.description}
+                      appearance={flag.appearance}
+                    />
+                  );
+                }
+                return (
+                  <Flag
+                    icon={<AddIcon label="Info" />}
+                    id={flag.id}
+                    title={flag.title}
+                    description={flag.description}
+                  />
+                );
+              })}
+            </FlagGroup>
             <div
               className={classNames(css.drawer, css.drawerRight)}
               style={{ width: isRightDrawerOpen ? '250px' : 0, transitionDuration: '0.5s' }}
@@ -524,6 +583,10 @@ function ReaflowWindow() {
               />
               <Button
                 className={classNames(css.rightControlButton)}
+                iconBefore={<RefreshIcon label="" size="medium" />}
+              />
+              <Button
+                className={classNames(css.rightControlButton)}
                 iconBefore={
                   isPannable ? (
                     <UnlockIcon label="" size="medium" />
@@ -537,6 +600,17 @@ function ReaflowWindow() {
                   resetTransform();
                 }}
               />
+              <div
+                className={classNames({
+                  'display-none': !removedNodeIds.length,
+                })}
+              >
+                <Button
+                  className={classNames(css.rightControlButton)}
+                  iconBefore={<UndoIcon label="" size="medium" />}
+                  onClick={onReduNode}
+                />
+              </div>
             </div>
             <div className={classNames(css.leftControls)}>
               <Button
@@ -547,65 +621,42 @@ function ReaflowWindow() {
               >
                 Add Issue
               </Button>
-              <div className={css.leftControlButton}>
-                <PopupSelect
-                  options={[
-                    { label: 'Depth 1', value: 1 },
-                    { label: 'Depth 2', value: 2 },
-                    { label: 'Depth 3', value: 3 },
-                  ]}
-                  onChange={(value: { value: number; label: string } | null) =>
-                    onDepthChange(value!.value)
-                  }
-                  maxMenuHeight={200}
-                  minMenuHeight={200}
-                  popperProps={{
-                    placement: 'auto',
-                  }}
-                  target={({ ref }) => (
-                    <Button ref={ref} iconAfter={<ChevronDownIcon label="" size="medium" />}>
-                      Depth: {depth}
-                    </Button>
-                  )}
-                />
-                <PopupSelect
-                  className={css.depthSelect}
-                  onChange={(value) => console.log(value?.value)}
-                  placeholder="Depth"
-                />
-              </div>
+              <Button
+                className={classNames(css.leftControlButton)}
+                iconBefore={<EditorHorizontalRuleIcon label="" size="medium" />}
+                onClick={onDepthDecrease}
+                isDisabled={isPannable || depth === 1}
+              />
+              <div className={classNames(css.leftControlButton, css.depth)}>Depth: {depth}</div>
+              <Button
+                className={classNames(css.leftControlButton)}
+                iconBefore={<AddIcon label="" size="medium" />}
+                onClick={onDepthIncrease}
+                isDisabled={isPannable || depth === maxDepth}
+              />
             </div>
             <TransformComponent>
               <Canvas
-                defaultPosition={state.isFullscreen ? CanvasPosition.TOP : CanvasPosition.CENTER}
+                defaultPosition={CanvasPosition.CENTER}
                 ref={canvasRef}
-                onLayoutChange={() => {
-                  canvasRef.current!.fitCanvas?.();
-                  console.log('layout change');
-                }}
                 // height={state.isFullscreen ? undefined : 400}
-                maxHeight={state.isFullscreen ? undefined : 700}
-                maxWidth={state.isFullscreen ? undefined : 1000}
+                maxHeight={state.isFullscreen ? 1100 : 700}
+                maxWidth={state.isFullscreen ? 2000 : 1000}
                 fit={true}
-                nodes={nodes.filter((node) => node.data.depth <= depth)}
+                nodes={nodes}
                 edges={edges}
-                zoomable={false}
+                zoomable={true}
                 selections={selections}
                 onCanvasClick={() => {
-                  setIsHidden(true);
-                  onCanvasClick?.();
+                  clearSelections();
                 }}
-                onMouseEnter={() => {
-                  setDroppable(true);
-                }}
-                onMouseLeave={() => setDroppable(false)}
                 edge={(edge: EdgeProps) => (
                   <Edge
                     {...edge}
                     remove={<Remove hidden={true} />}
                     label={<Label className={classNames('display-none')} />}
                     style={{
-                      stroke: !isHidden && edge.id === state.currentEdge?.id ? 'purple' : null,
+                      stroke: selections.includes(edge.id) ? 'purple' : null,
                     }}
                     onClick={onEdgeClick}
                   >
@@ -622,7 +673,7 @@ function ReaflowWindow() {
                           <div className={classNames(css.edgeButtons)} id={edge.id}>
                             <div
                               className={classNames({
-                                'display-none': isHidden || edge.id !== state.currentEdge?.id,
+                                'display-none': !selections.includes(edge.id),
                               })}
                             >
                               <PopupSelect
@@ -654,16 +705,13 @@ function ReaflowWindow() {
                             </div>
                             <div
                               className={classNames({
-                                'display-none': isHidden || edge.id !== state.currentEdge?.id,
+                                'display-none': !selections.includes(edge.id),
                               })}
                             >
                               <Button
                                 appearance="danger"
                                 iconBefore={<TrashIcon label="" size="medium" />}
-                                onClick={() => {
-                                  invoke('deleteIssueLink', { linkId: edge.id });
-                                  dispatch({ type: ActionKind.REMOVE_EDGE, payload: edge });
-                                }}
+                                onClick={() => onRemoveEdge(edge.id)}
                               />
                             </div>
                           </div>
@@ -675,10 +723,9 @@ function ReaflowWindow() {
                 node={(node: NodeProps) => (
                   <Node
                     {...node}
-                    className={classNames(css.node)}
-                    // onClick={(_event, node) => {
-                    //   router.open(`/browse/${node.id}`);
-                    // }}
+                    onClick={onNodeClick}
+                    className={css.node}
+                    remove={<Remove hidden={true} />}
                     port={
                       <Port
                         onDragEnd={(_event, _initial, data) => {
@@ -687,50 +734,69 @@ function ReaflowWindow() {
                         }}
                         onEnter={() => setEnteredNodeId(node.id)}
                         onLeave={() => setEnteredNodeId(null)}
-                        style={{ fill: 'blue', stroke: 'white' }}
+                        className={css.port}
                         rx={10}
                         ry={10}
                       />
                     }
                   >
-                    {(event) => {
+                    {(nodeProps) => {
                       return (
                         <foreignObject
-                          width={event.width}
-                          height={event.height}
-                          // onClick={() => {
-                          //   router.open(`/browse/${node.id}`);
-                          // }}
-                          className={cx({ isNodeHover: enteredNodeId === event.node.id })}
+                          width={nodeProps.width}
+                          height={nodeProps.height}
+                          onClick={(event) => onNodeClick(event, nodeProps.node)}
+                          className={cx({
+                            nodeForeignObject: true,
+                            nodeHover: enteredNodeId === nodeProps.node.id,
+                            nodeSelected: selections.includes(nodeProps.node.id),
+                          })}
                           onMouseEnter={() => {
-                            setEnteredNodeId(event.node.id);
+                            setEnteredNodeId(nodeProps.node.id);
                           }}
                           onMouseLeave={() => {
                             setEnteredNodeId(null);
                           }}
-                          onMouseUp={() => {
-                            console.log('kecske mecske minden rendebn');
-                          }}
                           style={{ cursor: 'pointer' }}
                         >
+                          <div
+                            className={classNames(css.nodeButtons, {
+                              'display-none': !selections.includes(nodeProps.node.id),
+                            })}
+                          >
+                            <Button
+                              appearance="primary"
+                              iconBefore={<LinkIcon label="" size="medium" />}
+                              style={{ display: 'absolute' }}
+                              onClick={() => router.open(`/browse/${node.id}`)}
+                            />
+                            <Button
+                              appearance="danger"
+                              iconBefore={<CrossIcon label="" size="medium" />}
+                              style={{ display: 'absolute' }}
+                              onClick={() => onRemoveNode(node.id)}
+                            />
+                          </div>
                           <div>
                             <div className={classNames(css.nodeInner)}>
                               <img
-                                src={event.node.icon?.url}
-                                height={event.node.icon?.height}
-                                width={event.node.icon?.width}
+                                src={nodeProps.node.icon?.url}
+                                height={nodeProps.node.icon?.height}
+                                width={nodeProps.node.icon?.width}
                                 className={classNames(css.issueTypeIcon)}
                               ></img>
-                              <div className={classNames(css.nodeId)}>{event.node.id}</div>
+                              <div className={classNames(css.nodeId)}>{nodeProps.node.id}</div>
                               <div className={classNames(css.nodeStatus)}>
-                                {event.node.data.status ? (
-                                  event.node.data.status
+                                {nodeProps.node.data.status ? (
+                                  nodeProps.node.data.status
                                 ) : (
                                   <div className={css.skeleton} style={{ width: 50, height: 10 }} />
                                 )}
                               </div>
                             </div>
-                            <div className={classNames(css.nodeTitle)}>{event.node.data.title}</div>
+                            <div className={classNames(css.nodeTitle)}>
+                              {nodeProps.node.data.title}
+                            </div>
                           </div>
                         </foreignObject>
                       );
@@ -746,44 +812,4 @@ function ReaflowWindow() {
   );
 }
 
-const createNodeData = (id: string, iconUrl: string, data: Record<string, any>): NodeData => {
-  return {
-    id,
-    icon: {
-      url: iconUrl,
-      width: 25,
-      height: 25,
-    },
-    data,
-    ports: [
-      {
-        id: `northport_${id}`,
-        width: 10,
-        height: 10,
-        side: 'NORTH',
-      },
-      {
-        id: `southport_${id}`,
-        width: 10,
-        height: 10,
-        side: 'SOUTH',
-      },
-    ],
-    width: 170,
-  };
-};
-
-const resolveIssueLink = (issueLink: any) => {
-  return {
-    id: issueLink.id,
-    self: issueLink.self,
-    issue: issueLink.inwardIssue ? issueLink.inwardIssue : issueLink.outwardIssue,
-    type: issueLink.type,
-    linkType: issueLink.inwardIssue ? 'inward' : 'outward',
-  };
-};
-
-// const getNodesAndEdges = (issues: any) => {
-//   const kecske mecske minden rendben csak el kell
-// }
 export default ReaflowWindow;

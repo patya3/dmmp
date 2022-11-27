@@ -55,7 +55,5 @@ export const getIssuesByKeys = async (keys: string[], fields: string) => {
       },
     });
 
-  const kecske = (await res.json()).issues;
-  console.log(kecske);
-  return kecske;
+  return (await res.json()).issues;
 };

@@ -12,9 +12,14 @@ interface IContext {
   isFullscreen: boolean;
   context: Record<string, any> | null;
   issues: Record<string, any>[];
-  loadedDepth: number;
+  issueKeys: string[];
+  links: Record<string, any>[];
+  linkIds: string[];
+  depth: number;
   nodeKeys: string[];
   edgeKeys: string[];
+  confirmationModalIsOpen: boolean;
+  currentMaxDepth: number;
 }
 
 export const initialState: IContext = {
@@ -27,9 +32,14 @@ export const initialState: IContext = {
   isFullscreen: false,
   context: null,
   issues: [],
-  loadedDepth: 1,
+  issueKeys: [],
+  links: [],
+  linkIds: [],
+  depth: 1,
   nodeKeys: [],
   edgeKeys: [],
+  confirmationModalIsOpen: false,
+  currentMaxDepth: 1,
 };
 
 export const Context = createContext<{

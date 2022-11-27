@@ -4,6 +4,10 @@ body {
     'Droid Sans', 'Helvetica Neue', sans-serif;
 }
 
+:root {
+  --main-blue-color: #0052cc;
+}
+
 #root {
   text-align: center;
 }

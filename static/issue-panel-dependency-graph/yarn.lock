@@ -116,6 +116,24 @@
     "@babel/runtime" "^7.0.0"
     bind-event-listener "^2.1.1"
 
+"@atlaskit/flag@^14.7.1":
+  version "14.7.1"
+  resolved "https://registry.npmjs.org/@atlaskit/flag/-/flag-14.7.1.tgz#5829b28d10bc55d25b9b217763eff82f18122f66"
+  integrity sha512-BSLn/c5JrW1z56MESMKDo/2ti+C3DB7Jbe7ZiObd5NSeerLCbwFlhdcmjTD6rymUWHMCXYJF2ez2BChLuxKofg==
+  dependencies:
+    "@atlaskit/analytics-next" "^8.0.0"
+    "@atlaskit/button" "^16.3.0"
+    "@atlaskit/ds-lib" "^2.1.0"
+    "@atlaskit/focus-ring" "^1.0.0"
+    "@atlaskit/icon" "^21.10.0"
+    "@atlaskit/motion" "^1.2.0"
+    "@atlaskit/portal" "^4.0.0"
+    "@atlaskit/theme" "^12.2.0"
+    "@atlaskit/tokens" "^0.10.0"
+    "@atlaskit/visually-hidden" "^1.1.0"
+    "@babel/runtime" "^7.0.0"
+    "@emotion/react" "^11.7.1"
+
 "@atlaskit/focus-ring@^1.0.0":
   version "1.0.6"
   resolved "https://registry.npmjs.org/@atlaskit/focus-ring/-/focus-ring-1.0.6.tgz"

@@ -7,8 +7,30 @@
 
 .node {
   fill: white;
-  stroke: #1a192b;
-  stroke-width: 0.5px;
+  stroke-width: 0;
+}
+
+.nodeForeignObject {
+  border: 1px solid #1a192b;
+  border-radius: 5px;
+  overflow: visible;
+}
+
+.nodeButtons {
+  position: absolute;
+  width: 100%;
+  top: -16px;
+  display: flex;
+  justify-content: right;
+}
+
+.nodeButtons Button {
+  margin: 0 3px;
+}
+
+.port {
+  fill: var(--main-blue-color);
+  stroke: white;
 }
 
 .nodeInner {
@@ -128,8 +150,12 @@ h6 {
   place-items: center;
 }
 
-.isNodeHover {
+.nodeHover {
   border: 1px solid black;
+}
+
+.nodeSelected {
+  border: 2px solid var(--main-blue-color);
 }
 
 .transparentText {
@@ -144,6 +170,11 @@ h6 {
 .blanket {
   display: grid;
   place-items: center;
+}
+
+.depth {
+  height: 32px;
+  line-height: 32px;
 }
 
 .skeleton {
