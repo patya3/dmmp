@@ -3,7 +3,7 @@ import {
   createEdgeDataFromLink,
   createNodeDataFromIssue,
   updateDepths,
-} from '../utils/context.utils';
+} from '../utils/reducer.utils';
 
 export enum ActionKind {
   SET_ISSUE = 'SET_ISSUE',

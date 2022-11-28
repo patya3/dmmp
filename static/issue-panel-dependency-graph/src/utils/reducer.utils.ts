@@ -1,4 +1,6 @@
 import { EdgeData, NodeData } from 'reaflow';
+import { EdgeTransfer } from '../types/app/edge-transfer.type';
+import { LinkedIssueTransfer } from '../types/app/link-transfer.type';
 
 export const updateDepths = (
   issues: any[],
@@ -68,8 +70,11 @@ export const updateDepths = (
   };
 };
 
-export const createNodeDataFromIssue = (issue: any): NodeData => {
-  const { key, fields, self, depth, hidden, addedByUser } = issue;
+export const createNodeDataFromIssue = (linkTransfer: LinkedIssueTransfer): NodeData => {
+  const { issue, self, depth, hidden, addedByUser } = linkTransfer;
+  console.log(linkTransfer);
+  const { key, fields } = issue;
+
   return {
     id: key,
     icon: {
@@ -116,3 +121,19 @@ export const createEdgeDataFromLink = (link: any) => {
     toPort: `northport_${to}`,
   };
 };
+
+export const convertLinkTransferToEdgeTransfer = (
+  linkTransfer: LinkedIssueTransfer,
+  issueKey: string,
+): EdgeTransfer => ({
+  id: linkTransfer.id,
+  to: linkTransfer.linkType === 'inward' ? issueKey : linkTransfer.issue.key,
+  from: linkTransfer.linkType === 'inward' ? linkTransfer.issue.key : issueKey,
+  type: linkTransfer.type,
+});
+
+export const convertMultiplieLinkTransferToEdgeTransfer = (
+  linkTransfers: LinkedIssueTransfer[],
+  issueKey: string,
+): EdgeTransfer[] =>
+  linkTransfers.map((linkTransfer) => convertLinkTransferToEdgeTransfer(linkTransfer, issueKey));

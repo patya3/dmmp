@@ -1,17 +1,19 @@
 import { invoke, view } from '@forge/bridge';
 import { useEffect, useState } from 'react';
+import { JiraContext } from '../types/jira/context.type';
+import { JiraIssue } from '../types/jira/issue.types';
 
 type Response = {
   loading: boolean;
   errors: { message: string }[];
-  issue: any;
-  context: any;
+  issue: JiraIssue | null;
+  context: JiraContext | null;
 };
 export const useIssue = (): Response => {
   const [loading, setLoading] = useState(true);
   const [errors, setErrors] = useState<{ message: string }[]>([]);
-  const [issue, setIssue] = useState<any>({});
-  const [context, setContext] = useState<any | null>(null);
+  const [issue, setIssue] = useState<JiraIssue | null>(null);
+  const [context, setContext] = useState<JiraContext | null>(null);
 
   useEffect(() => {
     setLoading(true);
@@ -19,9 +21,8 @@ export const useIssue = (): Response => {
 
     const fetchIssue = async () => {
       try {
-        const context = (await view.getContext()) as any;
-        // const response = await requestJira(`/rest/api/3/issue/${context.extension?.issue.key}`);
-        const data: any = await invoke('getIssueById', {
+        const context = (await view.getContext()) as JiraContext;
+        const data: JiraIssue = await invoke('getIssueById', {
           id: context.extension?.issue.key,
           fields: 'issuetype,status,summary,issuelinks',
         });
@@ -30,7 +31,7 @@ export const useIssue = (): Response => {
         setContext(context);
       } catch (e) {
         console.error('Could not fetch issue', e);
-        setIssue({});
+        setIssue(null);
         setErrors([{ message: 'Could not fetch issue' }]);
       } finally {
         setLoading(false);

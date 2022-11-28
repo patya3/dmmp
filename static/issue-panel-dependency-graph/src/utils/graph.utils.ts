@@ -1,17 +1,32 @@
 import { NodeData } from 'reaflow';
+import { LinkedIssueTransfer } from '../types/app/link-transfer.type';
+import { JiraIssueLink } from '../types/jira/issue.types';
 
-export const resolveIssueLink = (issueLink: any) => {
+export const resolveIssueLink = (
+  issueLink: JiraIssueLink,
+  depth?: number,
+  hidden?: boolean,
+): LinkedIssueTransfer => {
   return {
     id: issueLink.id,
     self: issueLink.self,
     issue: {
-      ...(issueLink.inwardIssue ? issueLink.inwardIssue : issueLink.outwardIssue),
+      ...(issueLink.inwardIssue ? issueLink.inwardIssue! : issueLink.outwardIssue!),
       isPartial: true,
     },
     type: issueLink.type,
     linkType: issueLink.inwardIssue ? 'inward' : 'outward',
+    depth,
+    hidden,
   };
 };
+
+export const resolveIssueLinks = (
+  issueLinks: JiraIssueLink[],
+  depth?: number,
+  hidden?: boolean,
+): LinkedIssueTransfer[] =>
+  issueLinks.map((issueLink) => resolveIssueLink(issueLink, depth, hidden));
 
 export const createNodeData = (
   id: string,

@@ -78,6 +78,7 @@ function ReaflowWindow() {
   const [tempEdgeId, setTempEdgeId] = useState<string | null>(null);
   const { state, dispatch } = useContext(Context);
   const { nodes, edges, nodeKeys, edgeKeys, issues } = state;
+
   const reaflowWindow = useRef(null);
   const canvasRef = useRef<CanvasRef | null>(null);
   const searchFieldRef = useRef<HTMLInputElement | null>(null);
