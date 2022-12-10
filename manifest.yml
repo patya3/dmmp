@@ -16,7 +16,7 @@ modules:
   trigger:
     - key: app-installation-trigger
       events:
-        - avi:forge:upgraded:app
+        - avi:forge:installed:app
       function: installation-trigger
   function:
     - key: dependency-graph

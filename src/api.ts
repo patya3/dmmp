@@ -1,5 +1,4 @@
 import api, { route } from '@forge/api';
-import { IssueLinkTypes } from './types/return.types';
 
 export const getIssueById = async (issueId: string, fields: string | null) => {
   let res: any;

@@ -90,12 +90,14 @@ function Roadmap() {
         const end = tasks[i].end.toISOString().split('T')[0];
         if (date === end && date === start) {
           setTimeout(() => {
-            let bar: HTMLElement | null = ref2.current!.querySelector(
-              `.bar > g:nth-child(${i + 1}) > g > g > rect:first-child`,
+            let bars: NodeListOf<HTMLElement> | null = ref2.current!.querySelectorAll(
+              `.bar > g:nth-child(${i + 1}) > g > g > rect`,
             );
-            if (bar) {
-              bar.style.width = '0';
-            }
+            bars?.forEach((bar) => {
+              if (bar) {
+                bar.style.width = '0';
+              }
+            });
           }, 5);
         }
       }
@@ -106,10 +108,10 @@ function Roadmap() {
     <div className={css.roadmapOuterContainer}>
       <div className={css.roadmapInnerContainer}>
         <div ref={ref} className={css.heightMeasure}></div>
-        {!!tasks.length && !loading && (
+        {!!tasks.length && (
           <div ref={ref2}>
             <Gantt
-              ganttHeight={ganttHeight}
+              // ganttHeight={ganttHeight}
               tasks={tasks}
               viewMode={viewMode}
               columnWidth={260}

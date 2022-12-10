@@ -18,7 +18,7 @@ const TooltipContent: React.FC<{
     <div className={styles.tooltipDefaultContainer} style={style}>
       <div className={styles.nameContainer}>
         <strong>{issue.fields.summary}</strong>
-        <span>
+        <span style={{ marginLeft: '10px' }}>
           {issue.fields.status.name === 'To Do' && <Lozenge>To Do</Lozenge>}
           {issue.fields.status.name === 'In Progress' && (
             <Lozenge appearance="inprogress">In Progress</Lozenge>
@@ -37,11 +37,13 @@ const TooltipContent: React.FC<{
       )}
       <div>
         <b>From:</b>{' '}
-        {issue.fields.customfield_10015 ? issue.fields.customfield_10015 : 'No Start Date'}
+        {issue.fields.customfield_10015
+          ? issue.fields.customfield_10015.replaceAll('-', '. ') + '.'
+          : 'No Start Date'}
       </div>
       <div>
         <b>To:</b>{' '}
-        {issue.fields.duedate ? issue.fields.duedate.replaceAll('-', '. ') : 'No Due Date'}
+        {issue.fields.duedate ? issue.fields.duedate.replaceAll('-', '. ') + '.' : 'No Due Date'}
       </div>
       <div>
         <b>Assigneed To:</b>&nbsp;
