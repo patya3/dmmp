@@ -96,7 +96,7 @@ function Header() {
               aria-label="search text field"
               placeholder="Search"
               elemAfterInput={
-                <EditorSearchIcon label="search" size="medium" primaryColor="rgb(94, 108, 132)" />
+                <EditorSearchIcon label="" size="medium" primaryColor="rgb(94, 108, 132)" />
               }
               onChange={(el) => setText(el.currentTarget.value)}
             />
@@ -161,7 +161,10 @@ function Header() {
             content={<InfoDialog />}
             isOpen={infoDialogIsOpen}
           >
-            <Button onClick={() => toggleInfoDialog()} iconBefore={<InfoIcon size="small" />}>
+            <Button
+              onClick={() => toggleInfoDialog()}
+              iconBefore={<InfoIcon label="" size="small" />}
+            >
               Info
             </Button>
           </InlineDialog>
@@ -175,7 +178,7 @@ function Header() {
             <Button
               onClick={() => toggleDialog()}
               style={{ marginLeft: '5px' }}
-              iconBefore={<AddIcon size="small" />}
+              iconBefore={<AddIcon label="" size="small" />}
             >
               Add Dependency
             </Button>

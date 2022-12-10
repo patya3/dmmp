@@ -40,7 +40,7 @@ function AddDependencyDialog() {
       />
       <div style={{ padding: '8px 0' }}>
         <span style={{ verticalAlign: 'middle' }}>
-          <LinkFilledIcon size="medium" primaryColor="" />
+          <LinkFilledIcon label="" size="medium" primaryColor="" />
         </span>
         <span style={{ verticalAlign: 'text-bottom', paddingLeft: '3px' }}>blocks</span>
       </div>

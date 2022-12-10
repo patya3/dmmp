@@ -144,7 +144,10 @@ const TaskListTable: React.FC<{
                   alignItems: 'center',
                 }}
               >
-                <Button iconBefore={<AddIcon size="small" />} onClick={() => addBar(t.id)} />
+                <Button
+                  iconBefore={<AddIcon label="" size="small" />}
+                  onClick={() => addBar(t.id)}
+                />
               </div>
             )}
           </div>
