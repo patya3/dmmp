@@ -1,13 +1,15 @@
 import { EdgeData, NodeData } from 'reaflow';
 import { EdgeTransfer } from '../types/app/edge-transfer.type';
-import { LinkedIssueTransfer } from '../types/app/link-transfer.type';
+import { IssueTransfer } from '../types/app/issue-transfer.interface';
+import { LinkTransfer } from '../types/app/link-transfer.type';
+import { createNodeDataFromIssueTransfer } from './graph.utils';
 
 export const updateDepths = (
-  issues: any[],
-  links: any[],
+  issues: IssueTransfer[],
+  links: EdgeTransfer[],
   depth: number,
 ): {
-  issues: any[];
+  issues: IssueTransfer[];
   nodes: NodeData[];
   edges: EdgeData[];
   edgeKeys: string[];
@@ -47,18 +49,18 @@ export const updateDepths = (
     newEdges: EdgeData[],
     newNodeKeys: string[],
     newEdgeKeys: string[],
-    newIssues: any[];
+    newIssues: IssueTransfer[];
   newIssues = issues.map((issue) => {
     const index = depths.findIndex((depthSet) => depthSet.has(issue.key));
     return { ...issue, depth: index };
   });
   newNodes = newIssues
-    .map((issue: any) => createNodeDataFromIssue(issue))
+    .map((issue) => createNodeDataFromIssueTransfer(issue))
     .filter((node) => node.data.depth <= depth || node.data.addedByUser);
   newNodeKeys = newNodes.map((node: NodeData) => node.id);
   newEdges = links
-    .map((link: any) => createEdgeDataFromLink(link))
-    .filter((link: any) => newNodeKeys.includes(link.from) && newNodeKeys.includes(link.to));
+    .map((link) => createEdgeDataFromLink(link))
+    .filter((link) => newNodeKeys.includes(link.from) && newNodeKeys.includes(link.to));
   newEdgeKeys = newEdges.map((edge: EdgeData) => edge.id);
 
   return {
@@ -70,46 +72,7 @@ export const updateDepths = (
   };
 };
 
-export const createNodeDataFromIssue = (linkTransfer: LinkedIssueTransfer): NodeData => {
-  const { issue, self, depth, hidden, addedByUser } = linkTransfer;
-  console.log(linkTransfer);
-  const { key, fields } = issue;
-
-  return {
-    id: key,
-    icon: {
-      url: fields.issuetype.iconUrl,
-      width: 25,
-      height: 25,
-    },
-    data: {
-      title: fields.summary,
-      status: fields.status.name,
-      issueType: fields.issuetype.name,
-      link: self,
-      depth,
-      hidden,
-      addedByUser,
-    },
-    ports: [
-      {
-        id: `northport_${key}`,
-        width: 10,
-        height: 10,
-        side: 'NORTH',
-      },
-      {
-        id: `southport_${key}`,
-        width: 10,
-        height: 10,
-        side: 'SOUTH',
-      },
-    ],
-    width: 170,
-  };
-};
-
-export const createEdgeDataFromLink = (link: any) => {
+export const createEdgeDataFromLink = (link: EdgeTransfer) => {
   const { from, to, type, id } = link;
 
   return {
@@ -123,7 +86,7 @@ export const createEdgeDataFromLink = (link: any) => {
 };
 
 export const convertLinkTransferToEdgeTransfer = (
-  linkTransfer: LinkedIssueTransfer,
+  linkTransfer: LinkTransfer,
   issueKey: string,
 ): EdgeTransfer => ({
   id: linkTransfer.id,
@@ -133,7 +96,19 @@ export const convertLinkTransferToEdgeTransfer = (
 });
 
 export const convertMultiplieLinkTransferToEdgeTransfer = (
-  linkTransfers: LinkedIssueTransfer[],
+  linkTransfers: LinkTransfer[],
   issueKey: string,
 ): EdgeTransfer[] =>
   linkTransfers.map((linkTransfer) => convertLinkTransferToEdgeTransfer(linkTransfer, issueKey));
+
+export const convertLinkTransferToIssueTransfer = (
+  linkTransfer: LinkTransfer,
+  depth: number,
+  hidden = false,
+  addedByUser = false,
+): IssueTransfer => ({
+  ...linkTransfer.issue,
+  depth,
+  hidden,
+  addedByUser,
+});

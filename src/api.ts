@@ -1,5 +1,4 @@
 import api, { route } from '@forge/api';
-import { CreateIssueLinkInput } from './input.types';
 import { IssueLinkTypes } from './types/return.types';
 
 export const getIssueById = async (issueId: string, fields: string | null) => {
@@ -21,7 +20,7 @@ export const deleteIssueLink = async (linkId: string): Promise<boolean> => {
 };
 
 export const createIssueLink = async (
-  bodyData: CreateIssueLinkInput,
+  bodyData: Record<string, any>,
 ): Promise<{ ok: boolean; msg: string }> => {
   const res = await api.asApp().requestJira(route`/rest/api/3/issueLink`, {
     method: 'POST',
@@ -35,7 +34,7 @@ export const createIssueLink = async (
   return { ok: res.ok, msg: '' };
 };
 
-export const getIssueLinkTypes = async (): Promise<IssueLinkTypes> => {
+export const getIssueLinkTypes = async () => {
   const res = await api.asApp().requestJira(route`/rest/api/3/issueLinkType`, {
     headers: {
       Accept: 'application/json',
@@ -60,9 +59,6 @@ export const getIssuesByKeys = async (keys: string[], fields: string) => {
 
 export const getIssues = async (
   defaultProjectKey: string,
-  projectKeys: string[],
-  statusCategories: string[],
-  userIds: string[],
   fields: string,
   issueType: string,
   connectedProjectsCustomFieldId: string,
@@ -71,14 +67,9 @@ export const getIssues = async (
   jqlStrings.push(
     `(project = ${defaultProjectKey} OR (cf[${connectedProjectsCustomFieldId}] = ${defaultProjectKey}))`,
   );
-  jqlStrings.push('project IN (' + projectKeys.map((p) => `"${p}"`).join(',') + ')');
-  jqlStrings.push('statusCategory IN (' + statusCategories.map((c) => `"${c}"`).join(',') + ')');
-  jqlStrings.push(`issuetype = ${issueType}`);
-  if (userIds.length)
-    jqlStrings.push('assignee IN (' + userIds.map((u) => `"${u}"`).join(',') + ')');
+  jqlStrings.push(`(issuetype = ${issueType} or "Epic Link" != null)`);
 
-  const jqlUrlString = jqlStrings.join(' and ');
-  console.log(jqlUrlString);
+  const jqlUrlString = jqlStrings.join(' AND ') + ' ORDER BY issuetype ASC, key ASC';
 
   const res = await api
     .asApp()
@@ -88,7 +79,6 @@ export const getIssues = async (
       },
     });
 
-  // TODO: handle errors
   return (await res.json()).issues;
 };
 
@@ -157,4 +147,26 @@ export const createCustomFieldOptions = async (
     });
 
   return res.json();
+};
+
+export const addFieldToDefaultScreen = async (fieldId: string) => {
+  const res = await api.asApp().requestJira(route`/rest/api/3/screens/addToDefault/${fieldId}`, {
+    method: 'POST',
+    headers: {
+      Accept: 'application/json',
+    },
+  });
+
+  return res.json();
+};
+
+export const updateIssue = async (issueKey: string, body: Record<string, any>) => {
+  await api.asApp().requestJira(route`/rest/api/3/issue/${issueKey}`, {
+    method: 'PUT',
+    headers: {
+      Accept: 'application/json',
+      'Content-Type': 'application/json',
+    },
+    body: JSON.stringify(body),
+  });
 };

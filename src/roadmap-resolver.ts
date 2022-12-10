@@ -1,28 +1,23 @@
 import Resolver from '@forge/resolver';
 import { storage } from '@forge/api';
-import { createIssueLink, getIssueById, getIssueFields, getIssues, getProjects } from './api';
+import {
+  createIssueLink,
+  getIssueById,
+  getIssueFields,
+  getIssues,
+  getProjects,
+  updateIssue,
+} from './api';
 
 const resolver = new Resolver();
 
-// project = TC OR (project=T2 AND "Connected Projects[Labels]" in (TC)) ORDER BY Rank ASC
 const defaultFields =
-  'issuetype,status,summary,issuelinks,assignee,duedate,customfield_10015,progress';
+  'issuetype,status,summary,issuelinks,assignee,duedate,customfield_10015,customfield_10014,progress';
 
 resolver.define('getIssues', ({ payload }) => {
-  const {
-    fields,
-    projectKeys,
-    statusCategories,
-    userIds,
-    issueType,
-    connectedProjectsCustomFieldId,
-    defaultProjectKey,
-  } = payload;
+  const { fields, issueType, connectedProjectsCustomFieldId, defaultProjectKey } = payload;
   return getIssues(
     defaultProjectKey,
-    projectKeys,
-    statusCategories,
-    userIds,
     fields ? fields : defaultFields,
     issueType,
     connectedProjectsCustomFieldId,
@@ -49,6 +44,34 @@ resolver.define('createIssueLink', async ({ payload }) => {
 
 resolver.define('getFromStorageByKey', async ({ payload }) => {
   return storage.get(payload.key);
+});
+
+resolver.define('updateIssueDate', async ({ payload }) => {
+  const { fieldName, fieldValue, issueKey } = payload;
+  const body = {
+    fields: {
+      [fieldName]: fieldValue,
+    },
+  };
+
+  return updateIssue(issueKey, body);
+});
+
+resolver.define('setSettings', async ({ payload }) => {
+  for (const [k, v] of Object.entries(payload.settings)) {
+    await storage.set(k, v);
+  }
+});
+
+resolver.define('getSettings', async ({ payload }) => {
+  const { settingKeys } = payload;
+  const settings: Record<string, any>[] = [];
+
+  for (const key of settingKeys) {
+    settings[key] = await storage.get(key);
+  }
+
+  return settings;
 });
 
 export const handler = resolver.getDefinitions();

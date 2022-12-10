@@ -45,6 +45,14 @@ import LinkIcon from '@atlaskit/icon/glyph/link';
 import RefreshIcon from '@atlaskit/icon/glyph/refresh';
 import UndoIcon from '@atlaskit/icon/glyph/undo';
 import { createNodeData, resolveIssueLink } from '../utils/graph.utils';
+import { SearchJiraIssue } from '../types/jira/search-issue.types';
+import { JiraIssue, JiraIssueLinkType } from '../types/jira/issue.types';
+import {
+  convertLinkTransferToIssueTransfer,
+  convertMultiplieLinkTransferToEdgeTransfer,
+} from '../utils/reducer.utils';
+import { IssueTransfer } from '../types/app/issue-transfer.interface';
+import Lozenge from '@atlaskit/lozenge';
 
 const cx = bind.bind(css);
 
@@ -56,7 +64,7 @@ function ReaflowWindow() {
   const [issueLinkTypes, setIssueLinkTypes] = useState<Record<string, any>[]>([]);
   const [isLeftDrawerOpen, setIsLeftDrawerOpen] = useState<boolean>(false);
   const [isRightDrawerOpen, setRightIsDrawerOpen] = useState<boolean>(false);
-  const [searchedIssues, setSearchedIssues] = useState([]);
+  const [searchedIssues, setSearchedIssues] = useState<SearchJiraIssue[]>([]);
   const [isSearchLoading, setIsSearchLoading] = useState<boolean>(false);
   const [isSearchDirty, setIsSearchDirty] = useState<boolean>(false);
   const [loading, setLoading] = useState<boolean>(false);
@@ -67,13 +75,12 @@ function ReaflowWindow() {
     null,
   );
   const [removedNodeIds, setRemovedNodeIds] = useState<string[]>([]);
-  console.log(removedNodeIds);
 
   const [flags, setFlags] = useState<
     { id: number; title: string; description: string; type: string; appearance: AppearanceTypes }[]
   >([]);
 
-  const [enteredNodeId, setEnteredNodeId] = useState<string | null>(null);
+  const [enteredNodeId, setEnteredNodeId] = useState<string>('');
   const [activeDrag, setActiveDrag] = useState<string | null>(null);
   const [tempEdgeId, setTempEdgeId] = useState<string | null>(null);
   const { state, dispatch } = useContext(Context);
@@ -83,29 +90,31 @@ function ReaflowWindow() {
   const canvasRef = useRef<CanvasRef | null>(null);
   const searchFieldRef = useRef<HTMLInputElement | null>(null);
 
-  const { selections, onCanvasClick, onClick, clearSelections } = useSelection({
+  const { selections, onClick, clearSelections } = useSelection({
     nodes,
     edges,
     selections: [],
   });
 
   useEffect(() => {
-    invoke('getIssueLinkTypes').then((res: any) => {
-      const inwardTypes = { label: 'Inward', options: [] as any[] };
-      const outwardTypes = { label: 'Outward', options: [] as any[] };
-      for (const type of res.issueLinkTypes) {
-        inwardTypes.options.push({
-          label: type.inward,
-          value: { name: type.name, type: 'inward', outwardText: type.outward },
-        });
-        outwardTypes.options.push({
-          label: type.outward,
-          value: { name: type.name, type: 'outward', outwardText: type.outward },
-        });
-      }
+    invoke<{ issueLinkTypes: JiraIssueLinkType[] }>('getIssueLinkTypes').then(
+      ({ issueLinkTypes }) => {
+        const inwardTypes = { label: 'Inward', options: [] as { label: string; value: any }[] };
+        const outwardTypes = { label: 'Outward', options: [] as { label: string; value: any }[] };
+        for (const type of issueLinkTypes) {
+          inwardTypes.options.push({
+            label: type.inward,
+            value: { name: type.name, type: 'inward', outwardText: type.outward },
+          });
+          outwardTypes.options.push({
+            label: type.outward,
+            value: { name: type.name, type: 'outward', outwardText: type.outward },
+          });
+        }
 
-      setIssueLinkTypes([inwardTypes, outwardTypes]);
-    });
+        setIssueLinkTypes([inwardTypes, outwardTypes]);
+      },
+    );
   }, [invoke, setIssueLinkTypes]);
 
   const toggleFullscreen = useCallback(() => {
@@ -139,16 +148,16 @@ function ReaflowWindow() {
       if (!event || event.label === state.currentEdge!.text) return;
 
       const isInward = event.value.type === 'inward';
-      invoke('changeIssueLinkType', {
+      invoke<JiraIssue>('changeIssueLinkType', {
         linkId: edge.id,
         linkData: {
           outwardIssue: { key: isInward ? edge.from : edge.to },
           inwardIssue: { key: isInward ? edge.to : edge.from },
           type: { name: event.value.name },
         },
-      }).then((updatedIssue: any) => {
+      }).then((updatedIssue) => {
         const link = resolveIssueLink(
-          updatedIssue.fields.issuelinks.find((issueLink: any) => !edgeKeys.includes(issueLink.id)),
+          updatedIssue.fields.issuelinks.find((issueLink) => !edgeKeys.includes(issueLink.id))!,
         );
         dispatch({
           type: ActionKind.CHANGE_EDGE_ID,
@@ -162,8 +171,8 @@ function ReaflowWindow() {
           payload: [
             {
               id: link.id,
-              from: isInward ? edge.to : edge.from,
-              to: isInward ? edge.from : edge.to,
+              from: isInward ? edge.to! : edge.from!,
+              to: isInward ? edge.from! : edge.to!,
               type: link.type,
             },
           ],
@@ -173,11 +182,11 @@ function ReaflowWindow() {
         type: ActionKind.UPDATE_EDGE,
         payload: {
           edgeId: edge.id,
-          from: isInward ? edge.to : edge.from,
-          to: isInward ? edge.from : edge.to,
+          from: isInward ? edge.to! : edge.from!,
+          to: isInward ? edge.from! : edge.to!,
           text: event.value.outwardText,
-          fromPort: isInward ? `southport_${edge.to}` : `southport_${edge.from}`,
-          toPort: isInward ? `northport_${edge.from}` : `northport_${edge.to}`,
+          fromPort: isInward ? `southport_${edge.to!}` : `southport_${edge.from!}`,
+          toPort: isInward ? `northport_${edge.from!}` : `northport_${edge.to!}`,
         },
       });
     },
@@ -202,7 +211,7 @@ function ReaflowWindow() {
         const response = await requestJira(
           `/rest/api/3/issue/picker?query=${text}&currentJQL=&showSubTasks=true`,
         );
-        const issues = (await response.json()).sections.find(
+        const issues: SearchJiraIssue[] = (await response.json()).sections.find(
           (section: any) => section.id === 'cs',
         )?.issues;
         setSearchedIssues(issues);
@@ -219,7 +228,7 @@ function ReaflowWindow() {
       if (tempEdgeId) {
         const [fromNodeId, toNodeId] = tempEdgeId.split('_');
         const isInward = type === 'inward';
-        const createdLink: any = await invoke('createIssueLink', {
+        const issueWithCreatedLink = await invoke<JiraIssue>('createIssueLink', {
           newNodeKey: activeDrag,
           linkData: {
             outwardIssue: { key: isInward ? fromNodeId : toNodeId },
@@ -229,7 +238,9 @@ function ReaflowWindow() {
         });
 
         const link = resolveIssueLink(
-          createdLink.fields.issuelinks.find((issueLink: any) => !edgeKeys.includes(issueLink.id)),
+          issueWithCreatedLink.fields.issuelinks.find(
+            (issueLink) => !edgeKeys.includes(issueLink.id),
+          )!,
         );
 
         dispatch({
@@ -251,7 +262,7 @@ function ReaflowWindow() {
           ],
         });
       }
-      setEnteredNodeId(null);
+      setEnteredNodeId('');
       setLoading(false);
       setTempEdgeId(null);
       setRightIsDrawerOpen(false);
@@ -260,7 +271,6 @@ function ReaflowWindow() {
   );
 
   const onRemoveEdge = useCallback((edgeId: string) => {
-    console.log('hello');
     setConfirmationModalData({
       title: 'Confirm deletation',
       body: 'Are you sure you want to delete this dependecy?',
@@ -287,7 +297,7 @@ function ReaflowWindow() {
   }, [removedNodeIds]);
 
   const onAddNode = useCallback(
-    async (issue: any) => {
+    async (issue: SearchJiraIssue) => {
       //add skeleton node
       dispatch({
         type: ActionKind.ADD_NODE,
@@ -297,27 +307,22 @@ function ReaflowWindow() {
           temp: true,
         }),
       });
-      invoke('getIssueById', {
+      invoke<JiraIssue>('getIssueById', {
         id: issue.key,
         fields: 'issuetype,status,summary,issuelinks',
-      }).then((loadedIssue: any) => {
-        const links = loadedIssue.fields.issuelinks.map((item: any) => resolveIssueLink(item));
+      }).then((loadedIssue) => {
+        const links = loadedIssue.fields.issuelinks.map((item) => resolveIssueLink(item));
         dispatch({
           type: ActionKind.ADD_ISSUES,
           payload: [
-            ...links.map((item: any) => ({ ...item.issue, depth: -1, addedByUser: true })),
-            { ...loadedIssue, depth: -1, addedByUser: true },
+            ...links.map((item) => convertLinkTransferToIssueTransfer(item, -1, false, true)),
+            { ...loadedIssue, depth: -1, hidden: false, addedByUser: true },
           ],
         });
         dispatch({
           type: ActionKind.ADD_LINKS,
           payload: {
-            links: links.map((link: any) => ({
-              id: link.id,
-              to: link.linkType === 'inward' ? issue.key : link.issue.key,
-              from: link.linkType === 'inward' ? link.issue.key : issue.key,
-              type: link.type,
-            })),
+            links: convertMultiplieLinkTransferToEdgeTransfer(links, issue.key),
             addedByUser: true,
           },
         });
@@ -329,7 +334,7 @@ function ReaflowWindow() {
 
   const onAddEdge = useCallback(
     (fromNodeId: string) => {
-      const toNodeId = enteredNodeId;
+      const toNodeId = enteredNodeId as string;
       setActiveDrag(fromNodeId);
       const id = `${fromNodeId}_${toNodeId}`;
       dispatch({
@@ -375,10 +380,10 @@ function ReaflowWindow() {
         .filter((issue) => issue.depth === depth - 1)
         .map((issue) => issue.key);
       const issueKeysToQuery: string[] = [];
-      const previouslyLoadedIssues: any[] = [];
+      const previouslyLoadedIssues: IssueTransfer[] = [];
 
       for (const issueKey of issueKeysInDepth) {
-        const issue = issues.find((issue: any) => issue.key === issueKey)!;
+        const issue = issues.find((issue) => issue.key === issueKey)!;
         if (issue.isPartial) {
           issueKeysToQuery.push(issueKey);
         } else {
@@ -404,27 +409,22 @@ function ReaflowWindow() {
         return;
       }
 
-      invoke('getIssuesByKeys', {
+      invoke<JiraIssue[]>('getIssuesByKeys', {
         issueKeys: issueKeysToQuery,
         fields: 'issuetype,status,summary,issuelinks',
-      }).then((issues: any) => {
+      }).then((issues) => {
         for (const issue of issues) {
-          const links = issue.fields.issuelinks.map((item: any) => resolveIssueLink(item));
+          const links = issue.fields.issuelinks.map((item) => resolveIssueLink(item));
           dispatch({
             type: ActionKind.ADD_ISSUES,
             payload: [
-              ...links.map((item: any) => ({ ...item.issue, depth: -1 })),
-              { ...issue, depth: -1 },
+              ...links.map((item) => convertLinkTransferToIssueTransfer(item, -1)),
+              { ...issue, depth: -1, hidden: false },
             ],
           });
           dispatch({
             type: ActionKind.ADD_LINKS,
-            payload: links.map((link: any) => ({
-              id: link.id,
-              to: link.linkType === 'inward' ? issue.key : link.issue.key,
-              from: link.linkType === 'inward' ? link.issue.key : issue.key,
-              type: link.type,
-            })),
+            payload: convertMultiplieLinkTransferToEdgeTransfer(links, issue.key),
           });
         }
         canvasRef.current!.fitCanvas?.();
@@ -553,7 +553,7 @@ function ReaflowWindow() {
               />
               <div className={css.searchResult}>
                 {!!searchedIssues.length &&
-                  searchedIssues?.map((issue: any) => (
+                  searchedIssues?.map((issue) => (
                     <ButtonItem
                       isDisabled={state.nodes.map((node) => node.id).includes(issue.key)}
                       css={{ cursor: '' }}
@@ -634,7 +634,6 @@ function ReaflowWindow() {
               <Canvas
                 defaultPosition={CanvasPosition.CENTER}
                 ref={canvasRef}
-                // height={state.isFullscreen ? undefined : 400}
                 maxHeight={state.isFullscreen ? 1100 : 700}
                 maxWidth={state.isFullscreen ? 2000 : 1000}
                 fit={true}
@@ -728,7 +727,7 @@ function ReaflowWindow() {
                           onAddEdge(data.id.split('_')[1]);
                         }}
                         onEnter={() => setEnteredNodeId(node.id)}
-                        onLeave={() => setEnteredNodeId(null)}
+                        onLeave={() => setEnteredNodeId('')}
                         className={css.port}
                         rx={10}
                         ry={10}
@@ -745,14 +744,17 @@ function ReaflowWindow() {
                             nodeForeignObject: true,
                             nodeHover: enteredNodeId === nodeProps.node.id,
                             nodeSelected: selections.includes(nodeProps.node.id),
+                            defaultNodeBackground: nodeProps.node.data?.depth === 0,
                           })}
                           onMouseEnter={() => {
                             setEnteredNodeId(nodeProps.node.id);
                           }}
                           onMouseLeave={() => {
-                            setEnteredNodeId(null);
+                            setEnteredNodeId('');
                           }}
-                          style={{ cursor: 'pointer' }}
+                          style={{
+                            cursor: 'pointer',
+                          }}
                         >
                           <div
                             className={classNames(css.nodeButtons, {
@@ -780,18 +782,28 @@ function ReaflowWindow() {
                                 width={nodeProps.node.icon?.width}
                                 className={classNames(css.issueTypeIcon)}
                               ></img>
-                              <div className={classNames(css.nodeId)}>{nodeProps.node.id}</div>
+                              <div className={classNames(css.nodeId)}>
+                                {nodeProps.node.data.issueType}
+                              </div>
                               <div className={classNames(css.nodeStatus)}>
                                 {nodeProps.node.data.status ? (
-                                  nodeProps.node.data.status
+                                  <>
+                                    {nodeProps.node.data.status === 'To Do' && (
+                                      <Lozenge>To Do</Lozenge>
+                                    )}
+                                    {nodeProps.node.data.status === 'In Progress' && (
+                                      <Lozenge appearance="inprogress">In Progress</Lozenge>
+                                    )}
+                                    {nodeProps.node.data.status === 'Done' && (
+                                      <Lozenge appearance="success">Done</Lozenge>
+                                    )}
+                                  </>
                                 ) : (
                                   <div className={css.skeleton} style={{ width: 50, height: 10 }} />
                                 )}
                               </div>
                             </div>
-                            <div className={classNames(css.nodeTitle)}>
-                              {nodeProps.node.data.title}
-                            </div>
+                            <div className={classNames(css.nodeTitle)}>{nodeProps.node.id}</div>
                           </div>
                         </foreignObject>
                       );

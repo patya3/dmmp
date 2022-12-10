@@ -5,8 +5,11 @@ import { ActionKind } from './context/Reducer';
 import ReaflowWindow from './components/ReaflowWindow';
 import Spinner from '@atlaskit/spinner';
 import { invoke } from '@forge/bridge';
-import { resolveIssueLink, resolveIssueLinks } from './utils/graph.utils';
-import { convertMultiplieLinkTransferToEdgeTransfer } from './utils/reducer.utils';
+import { resolveIssueLinks } from './utils/graph.utils';
+import {
+  convertLinkTransferToIssueTransfer,
+  convertMultiplieLinkTransferToEdgeTransfer,
+} from './utils/reducer.utils';
 
 function App() {
   const { loading, errors, issue, context } = useIssue();
@@ -18,10 +21,13 @@ function App() {
       dispatch({ type: ActionKind.SET_CONTEXT, payload: context });
     }
     if (!loading && issue && errors.length === 0 && (!state.edges.length || !state.nodes.length)) {
-      const linkTransfers = resolveIssueLinks(issue.fields.issuelinks, 1, false);
+      const linkTransfers = resolveIssueLinks(issue.fields.issuelinks);
       dispatch({
         type: ActionKind.ADD_ISSUES,
-        payload: [...linkTransfers, { ...issue, depth: 0, hidden: false }],
+        payload: [
+          ...linkTransfers.map((item) => convertLinkTransferToIssueTransfer(item, 1, false)),
+          { ...issue, depth: 0, hidden: false },
+        ],
       });
       dispatch({
         type: ActionKind.ADD_LINKS,
@@ -32,10 +38,13 @@ function App() {
         fields: 'issuetype,status,summary,issuelinks',
       }).then((issues: any) => {
         for (const it of issues) {
-          const linkTransfers = resolveIssueLinks(it.fields.issuelinks, 2, true);
+          const linkTransfers = resolveIssueLinks(it.fields.issuelinks);
           dispatch({
             type: ActionKind.ADD_ISSUES,
-            payload: [...linkTransfers, { ...it, depth: 1, hidden: false }],
+            payload: [
+              ...linkTransfers.map((item) => convertLinkTransferToIssueTransfer(item, 2, true)),
+              { ...it, depth: 1, hidden: false },
+            ],
           });
           dispatch({
             type: ActionKind.ADD_LINKS,

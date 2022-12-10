@@ -1,12 +1,9 @@
 import { NodeData } from 'reaflow';
-import { LinkedIssueTransfer } from '../types/app/link-transfer.type';
+import { IssueTransfer } from '../types/app/issue-transfer.interface';
+import { LinkTransfer } from '../types/app/link-transfer.type';
 import { JiraIssueLink } from '../types/jira/issue.types';
 
-export const resolveIssueLink = (
-  issueLink: JiraIssueLink,
-  depth?: number,
-  hidden?: boolean,
-): LinkedIssueTransfer => {
+export const resolveIssueLink = (issueLink: JiraIssueLink): LinkTransfer => {
   return {
     id: issueLink.id,
     self: issueLink.self,
@@ -16,17 +13,11 @@ export const resolveIssueLink = (
     },
     type: issueLink.type,
     linkType: issueLink.inwardIssue ? 'inward' : 'outward',
-    depth,
-    hidden,
   };
 };
 
-export const resolveIssueLinks = (
-  issueLinks: JiraIssueLink[],
-  depth?: number,
-  hidden?: boolean,
-): LinkedIssueTransfer[] =>
-  issueLinks.map((issueLink) => resolveIssueLink(issueLink, depth, hidden));
+export const resolveIssueLinks = (issueLinks: JiraIssueLink[]): LinkTransfer[] =>
+  issueLinks.map((issueLink) => resolveIssueLink(issueLink));
 
 export const createNodeData = (
   id: string,
@@ -50,6 +41,42 @@ export const createNodeData = (
       },
       {
         id: `southport_${id}`,
+        width: 10,
+        height: 10,
+        side: 'SOUTH',
+      },
+    ],
+    width: 170,
+  };
+};
+
+export const createNodeDataFromIssueTransfer = (item: IssueTransfer): NodeData => {
+  const { fields, key, self, depth, hidden, addedByUser } = item;
+  return {
+    id: key,
+    icon: {
+      url: fields.issuetype.iconUrl,
+      width: 25,
+      height: 25,
+    },
+    data: {
+      title: fields.summary,
+      status: fields.status.name,
+      issueType: fields.issuetype.name,
+      link: self,
+      depth,
+      hidden,
+      addedByUser,
+    },
+    ports: [
+      {
+        id: `northport_${key}`,
+        width: 10,
+        height: 10,
+        side: 'NORTH',
+      },
+      {
+        id: `southport_${key}`,
         width: 10,
         height: 10,
         side: 'SOUTH',

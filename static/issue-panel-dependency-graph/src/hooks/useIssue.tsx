@@ -22,7 +22,7 @@ export const useIssue = (): Response => {
     const fetchIssue = async () => {
       try {
         const context = (await view.getContext()) as JiraContext;
-        const data: JiraIssue = await invoke('getIssueById', {
+        const data = await invoke<JiraIssue>('getIssueById', {
           id: context.extension?.issue.key,
           fields: 'issuetype,status,summary,issuelinks',
         });

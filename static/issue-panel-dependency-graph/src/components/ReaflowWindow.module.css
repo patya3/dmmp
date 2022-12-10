@@ -6,7 +6,7 @@
 }
 
 .node {
-  fill: white;
+  fill: #fff;
   stroke-width: 0;
 }
 
@@ -14,6 +14,11 @@
   border: 1px solid #1a192b;
   border-radius: 5px;
   overflow: visible;
+  position: fixed;
+}
+
+.defaultNodeBackground {
+  background-color: #e6effc;
 }
 
 .nodeButtons {

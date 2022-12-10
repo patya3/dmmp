@@ -1,0 +1,48 @@
+.headerContainer {
+  flex: 0 0 auto;
+  z-index: 12;
+}
+
+.breadcrumbContainer {
+  margin: 0px 0px 16px;
+}
+
+.filterContainer {
+  margin-top: 16px;
+  margin-bottom: 32px;
+  display: flex;
+  -webkit-box-pack: justify;
+  justify-content: space-between;
+  -webkit-box-align: center;
+  align-items: center;
+}
+
+.buttonGroupContainer {
+  display: flex;
+  justify-content: space-between;
+  margin-bottom: 8px;
+}
+
+.filters {
+  display: flex;
+  position: relative;
+  -webkit-box-align: center;
+  align-items: center;
+  min-width: 0;
+}
+
+.filters .statusSelect {
+  min-width: 180px;
+}
+
+.filters .projectSelect {
+  min-width: 300px;
+}
+
+.filters > div:nth-child(n + 2) {
+  margin-left: 10px;
+}
+
+.searchIcon {
+  color: rgb(94, 108, 132);
+}

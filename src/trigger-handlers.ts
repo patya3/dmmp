@@ -1,10 +1,12 @@
 import { storage } from '@forge/api';
 import {
+  addFieldToDefaultScreen,
   createCustomField,
   createCustomFieldOptions,
   getCustomFieldContexts,
   getProjects,
 } from './api';
+
 export async function installationHandler() {
   const customFieldBody = {
     searcherKey: 'com.atlassian.jira.plugin.system.customfieldtypes:multiselectsearcher',
@@ -13,7 +15,7 @@ export async function installationHandler() {
     type: 'com.atlassian.jira.plugin.system.customfieldtypes:multiselect',
   };
 
-  const projects: any[] = await getProjects();
+  const projects = await getProjects();
   const options = projects.map((project) => ({
     disabled: false,
     value: `${project.name} (${project.key})`,
@@ -25,11 +27,13 @@ export async function installationHandler() {
   const { values } = await getCustomFieldContexts(fieldId);
   const contextId = values[0].id;
   await createCustomFieldOptions(fieldId, contextId, optionsBody);
+  await addFieldToDefaultScreen(fieldId); // TODO test it
 
   await storage.set('cpcfId', fieldId);
   await storage.set(
     'cpcfOptions',
     options.map((option) => option.value),
   );
+
   return true;
 }

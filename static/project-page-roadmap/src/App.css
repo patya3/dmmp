@@ -1,0 +1,13 @@
+.App {
+  display: flex;
+  flex-flow: column;
+  height: 100%;
+}
+
+.mainWindow {
+  box-sizing: border-box;
+  padding: 0px 0px 0px 40px;
+  display: flex;
+  flex-direction: column;
+  overflow: hidden;
+}

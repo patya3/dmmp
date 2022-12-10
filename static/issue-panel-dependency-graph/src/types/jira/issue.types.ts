@@ -65,7 +65,7 @@ export type JiraIssueLinkIssueData = {
   self: string;
   fields: {
     issuetype: JiraIssueType;
-    priority: JiraIssuePriority;
+    priority?: JiraIssuePriority;
     status: JiraIssueStatus;
     summary: string;
   };

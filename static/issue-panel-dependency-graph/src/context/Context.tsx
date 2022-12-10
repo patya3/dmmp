@@ -1,19 +1,21 @@
 import { createContext, Dispatch, useReducer } from 'react';
 import { EdgeData, NodeData } from 'reaflow';
+import { EdgeTransfer } from '../types/app/edge-transfer.type';
+import { IssueTransfer } from '../types/app/issue-transfer.interface';
+import { JiraContext } from '../types/jira/context.type';
 import reducer, { Action } from './Reducer';
 
-interface IContext {
-  issue: Record<string, any>;
+export interface IContext {
   edges: EdgeData[];
   nodes: NodeData[];
   currentNode: NodeData | null;
   currentEdge: EdgeData | null;
   loading: boolean;
   isFullscreen: boolean;
-  context: Record<string, any> | null;
-  issues: Record<string, any>[];
+  context: JiraContext | null;
+  issues: IssueTransfer[];
   issueKeys: string[];
-  links: Record<string, any>[];
+  links: EdgeTransfer[];
   linkIds: string[];
   depth: number;
   nodeKeys: string[];
@@ -22,7 +24,6 @@ interface IContext {
 }
 
 export const initialState: IContext = {
-  issue: {},
   edges: [],
   nodes: [],
   currentNode: null,
